@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* RESET TOTAL */
+* {
+  box-sizing: border-box;
+}
+
+/* FIX BACKGROUND HITAM SAAT SCROLL */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background-color: #ffffff;
+  color: #111827;
+}
+
+/* Next App Root */
+body {
+  overflow-x: hidden;
+}
+
+/* Matikan dark theme apapun */
+[data-theme],
+.dark {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
