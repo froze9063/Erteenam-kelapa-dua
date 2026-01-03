@@ -30,9 +30,12 @@ import {
   Clock,
   Maximize2,
   Loader2,
+  Megaphone,
+  MessageSquare,
+  ShieldAlert,
 } from "lucide-react";
 
-// --- KONFIGURASI KEAMANAN & DATA ---
+// --- KONFIGURASI KEAMANAN ---
 const BAD_WORDS = [
   "anjing",
   "anjir",
@@ -212,6 +215,9 @@ const Skeleton = ({ className }: { className: string }) => (
 );
 
 export default function PortalRT() {
+  const [activeTab, setActiveTab] = useState<"timeline" | "laporan">(
+    "timeline"
+  );
   const [bulan, setBulan] = useState("2026-01");
   const [dataSaldo, setDataSaldo] = useState({ saldo: 0, total_keluar: 0 });
   const [listTimeline, setListTimeline] = useState<any[]>([]);
@@ -288,47 +294,63 @@ export default function PortalRT() {
     else setGreeting("Selamat Malam");
   }, []);
 
-  // --- LOGIKA POSTING DENGAN COOLDOWN ---
   const handlePost = async () => {
     if (!postText.trim() && !selectedImage) return;
 
-    // Cek Cooldown (5 Menit)
-    const LAST_POST_KEY = "portal_rt_last_post";
-    const COOLDOWN_TIME = 5 * 60 * 1000; // 5 menit dalam ms
-    const lastPost = localStorage.getItem(LAST_POST_KEY);
+    // Cooldown 5 Menit
+    const key = activeTab === "timeline" ? "last_post" : "last_report";
+    const lastPost = localStorage.getItem(key);
     const now = Date.now();
+    const COOLDOWN = 5 * 60 * 1000;
 
-    if (lastPost && now - parseInt(lastPost) < COOLDOWN_TIME) {
-      const remainingSeconds = Math.ceil(
-        (COOLDOWN_TIME - (now - parseInt(lastPost))) / 1000
+    if (lastPost && now - parseInt(lastPost) < COOLDOWN) {
+      const remaining = Math.ceil(
+        (COOLDOWN - (now - parseInt(lastPost))) / 1000 / 60
       );
-      const remainingMinutes = Math.ceil(remainingSeconds / 60);
       alert(
-        `Mohon tunggu ${remainingMinutes} menit lagi untuk mengirim postingan.`
+        `Mohon tunggu ${remaining} menit lagi sebelum ${
+          activeTab === "timeline" ? "posting" : "lapor"
+        } kembali.`
       );
       return;
     }
 
     const cleanContent = filterText(postText);
     const cleanName = filterText(posterName.trim() || "Warga Anonim");
+    const today = new Date();
+    const dateStr = today.toISOString().split("T")[0]; // 2026-01-03
+    const monthStr = dateStr.substring(0, 7); // 2026-01
 
     try {
-      await addDoc(collection(db, "timeline"), {
-        user: cleanName,
-        content: cleanContent,
-        image: selectedImage,
-        createdAt: serverTimestamp(),
-      });
+      if (activeTab === "timeline") {
+        await addDoc(collection(db, "timeline"), {
+          user: cleanName,
+          content: cleanContent,
+          image: selectedImage,
+          createdAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(db, "laporan"), {
+          name: cleanName,
+          description: cleanContent,
+          image: selectedImage,
+          date: dateStr,
+          date_month: monthStr,
+          createdAt: serverTimestamp(),
+        });
+      }
 
-      // Simpan waktu posting terakhir
-      localStorage.setItem(LAST_POST_KEY, now.toString());
-
+      localStorage.setItem(key, now.toString());
       setPostText("");
       setPosterName("");
       setSelectedImage(null);
-      alert("Postingan terkirim!");
+      alert(
+        activeTab === "timeline"
+          ? "Info berhasil diposting!"
+          : "Laporan telah terkirim ke Pak RT!"
+      );
     } catch (err) {
-      alert("Gagal mengirim postingan.");
+      alert("Terjadi kesalahan.");
     }
   };
 
@@ -371,7 +393,7 @@ export default function PortalRT() {
         >
           <img
             src={fullScreenImage}
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
             alt="Full view"
           />
         </div>
@@ -397,8 +419,6 @@ export default function PortalRT() {
                 WARGA
               </span>
             </h1>
-
-            {/* LOKASI HEADER */}
             <div className="flex items-center gap-2 text-slate-400 font-bold text-xs md:text-sm">
               <MapPin size={16} className="text-indigo-500" />
               <span>Kelapa Dua Tangerang</span>
@@ -463,7 +483,7 @@ export default function PortalRT() {
           </div>
         </div>
 
-        {/* MOBILE ONLY: PENGELUARAN (Tampil sebelum Pengurus di Mobile) */}
+        {/* MOBILE ONLY: PENGELUARAN */}
         <div className="lg:hidden mb-8 order-1">
           <RincianPengeluaran
             listPengeluaran={listPengeluaran}
@@ -471,7 +491,7 @@ export default function PortalRT() {
           />
         </div>
 
-        {/* SECTION: PENGURUS RT (Mobile: Order 2) */}
+        {/* SECTION: PENGURUS RT */}
         <section className="mb-12 order-2">
           <div className="flex items-center gap-4 mb-8">
             <div className="h-px flex-1 bg-white/10"></div>
@@ -502,17 +522,47 @@ export default function PortalRT() {
           </div>
         </section>
 
-        {/* ROW 2: TIMELINE & SIDEBAR (Mobile: Order 3) */}
+        {/* ROW 2: INPUT & TIMELINE */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 order-3">
           <div className="lg:col-span-7 space-y-8">
-            {/* Input Post */}
-            <div className="bg-[#1A1D24] rounded-[2.5rem] p-6 md:p-8 border border-white/5 shadow-2xl">
+            {/* INPUT FORM WITH TABS */}
+            <div
+              className={`rounded-[2.5rem] p-6 md:p-8 border shadow-2xl transition-colors duration-500 ${
+                activeTab === "laporan"
+                  ? "bg-[#2A1A1A] border-rose-900/50"
+                  : "bg-[#1A1D24] border-white/5"
+              }`}
+            >
+              {/* Tab Selector */}
+              <div className="flex gap-2 mb-8 bg-black/20 p-1 rounded-2xl w-fit">
+                <button
+                  onClick={() => setActiveTab("timeline")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+                    activeTab === "timeline"
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  <MessageSquare size={14} /> POST INFO
+                </button>
+                <button
+                  onClick={() => setActiveTab("laporan")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+                    activeTab === "laporan"
+                      ? "bg-rose-600 text-white shadow-lg shadow-rose-900/50"
+                      : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  <ShieldAlert size={14} /> LAPOR PAK!
+                </button>
+              </div>
+
               <div className="flex items-center gap-3 mb-4">
                 <img
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${
                     posterName || "anon"
                   }`}
-                  className="w-10 h-10 rounded-xl bg-indigo-500/20"
+                  className="w-10 h-10 rounded-xl bg-white/5"
                   alt="avatar"
                 />
                 <input
@@ -522,18 +572,48 @@ export default function PortalRT() {
                   className="bg-white/5 border-none rounded-xl px-4 py-2 flex-1 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+
               <textarea
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
-                className="w-full bg-transparent border-none text-base md:text-lg font-medium min-h-[100px] focus:ring-0 placeholder:text-slate-600"
-                placeholder="Apa info hari ini?"
+                className="w-full bg-transparent border-none text-base md:text-lg font-medium min-h-[120px] focus:ring-0 placeholder:text-slate-600"
+                placeholder={
+                  activeTab === "timeline"
+                    ? "Ada info apa hari ini warga?"
+                    : "Tuliskan laporan Anda untuk Pak RT..."
+                }
               />
+
+              {selectedImage && (
+                <div className="relative w-24 h-24 mb-4 group">
+                  <img
+                    src={selectedImage}
+                    className="w-full h-full object-cover rounded-xl border border-white/10"
+                    alt="preview"
+                  />
+                  <button
+                    onClick={() => setSelectedImage(null)}
+                    className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest"
+                  className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest hover:text-white transition-colors"
                 >
-                  <ImageIcon size={18} /> Foto
+                  <ImageIcon
+                    size={18}
+                    className={
+                      activeTab === "laporan"
+                        ? "text-rose-500"
+                        : "text-indigo-500"
+                    }
+                  />{" "}
+                  Lampirkan Foto
                 </button>
                 <input
                   type="file"
@@ -544,15 +624,22 @@ export default function PortalRT() {
                 />
                 <button
                   onClick={handlePost}
-                  className="bg-white text-black px-6 py-2.5 rounded-xl font-black text-[10px] tracking-widest hover:bg-indigo-500 hover:text-white transition-all transform active:scale-95 shadow-xl"
+                  className={`px-8 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all transform active:scale-95 shadow-xl ${
+                    activeTab === "laporan"
+                      ? "bg-rose-600 hover:bg-rose-500 text-white"
+                      : "bg-white text-black hover:bg-indigo-600 hover:text-white"
+                  }`}
                 >
-                  KIRIM
+                  {activeTab === "timeline" ? "KIRIM INFO" : "LAPOR PAK!"}
                 </button>
               </div>
             </div>
 
             {/* Timeline List */}
             <div className="space-y-6">
+              <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-slate-500 mb-4">
+                Informasi Terbaru
+              </h3>
               {isFetching
                 ? [1, 2].map((i) => (
                     <Skeleton key={i} className="h-40 w-full" />
