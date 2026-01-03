@@ -1,341 +1,581 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from "react";
+import { db } from "../lib/firebase";
 import {
-  Wallet,
-  TrendingDown,
-  ChevronDown,
-  MessageSquare,
-  Send,
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  orderBy,
+  where,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+
+import {
   Calendar,
   User,
   Zap,
+  ImageIcon,
+  X,
+  ReceiptText,
   MapPin,
-  Clock,
+  Flame,
+  Ambulance,
+  Siren,
+  TrendingDown,
   ChevronRight,
-  Users,
-  ShieldCheck,
-  Bell,
-  Home,
-  PieChart,
-  Settings,
-  Info
-} from 'lucide-react'
+  Wallet,
+  ArrowDownCircle,
+  Hash,
+  Clock,
+  Maximize2,
+} from "lucide-react";
 
-/* ================= DATA TERINTEGRASI ================= */
 const pengurus = [
-  { jabatan: 'Ketua RT', nama: 'Pak Agus', deskripsi: 'Penanggung Jawab', icon: <ShieldCheck className="text-indigo-600" size={20} /> },
-  { jabatan: 'Wakil Ketua', nama: 'Pak Agus', deskripsi: 'Operasional', icon: <User className="text-blue-500" size={20} /> },
-  { jabatan: 'Sekretaris', nama: 'Pak Agus', deskripsi: 'Administrasi', icon: <MessageSquare className="text-emerald-500" size={20} /> },
-  { jabatan: 'Bendahara', nama: 'Pak Agus', deskripsi: 'Keuangan', icon: <Wallet className="text-amber-500" size={20} /> },
-]
-
-const bulananData: Record<string, any> = {
-  '2026-01': {
-    saldo: 5000000,
-    totalKeluar: 3200000,
-    pengeluaran: [
-      { id: 1, tanggal: '05 Jan', judul: 'Kebersihan Lingkungan', total: 1200000, kategori: 'Fasilitas', color: 'bg-blue-500', detail: [{ item: 'Upah petugas kebersihan', harga: 1200000 }] },
-      { id: 2, tanggal: '17 Jan', judul: 'Lomba Catur Warga', total: 2000000, kategori: 'Sosial', color: 'bg-purple-500', detail: [{ item: 'Hadiah & Konsumsi', harga: 2000000 }] },
-    ],
-    acara: [
-      { id: 101, judul: 'Kerja Bakti Masal', tgl: '12 Jan 2026', jam: '07:00', lokasi: 'Lapangan Utama RT.06', status: 'Selesai', desc: 'Fokus pada pembersihan selokan utama dan perampingan dahan pohon.' },
-      { id: 102, judul: 'Rapat Bulanan', tgl: '25 Jan 2026', jam: '19:30', lokasi: 'Balai Warga / Rumah Pak RT', status: 'Selesai', desc: 'Pembahasan iuran keamanan dan rencana aspal jalan.' }
-    ]
+  {
+    jabatan: "Ketua RT",
+    nama: "Agus Ferianto",
+    color: "from-violet-600 to-indigo-600",
   },
-  '2026-02': {
-    saldo: 7500000,
-    totalKeluar: 1500000,
-    pengeluaran: [
-      { id: 3, tanggal: '02 Feb', judul: 'Perbaikan Lampu Jalan', total: 1500000, kategori: 'Perbaikan', color: 'bg-orange-500', detail: [{ item: 'LED Philips 10 unit', harga: 1500000 }] },
-    ],
-    acara: [
-      { id: 103, judul: 'Senam Sehat Minggu Pagi', tgl: '08 Feb 2026', jam: '06:00', lokasi: 'Fasum Blok A', status: 'Akan Datang', desc: 'Instruktur profesional & tersedia doorprize menarik.' },
-      { id: 104, judul: 'Fogging DBD', tgl: '15 Feb 2026', jam: '08:00', lokasi: 'Seluruh Area RT.06', status: 'Akan Datang', desc: 'Mohon menutup wadah air terbuka dan makanan di meja.' }
-    ]
-  }
-}
+  {
+    jabatan: "Wakil Ketua",
+    nama: "Aulia Panji W",
+    color: "from-blue-500 to-cyan-500",
+  },
+  {
+    jabatan: "Sekretaris",
+    nama: "Budiyono",
+    color: "from-rose-500 to-orange-500",
+  },
+  { jabatan: "Bendahara", nama: "Aldi", color: "from-emerald-500 to-teal-500" },
+];
 
-/* ================= MAIN PAGE ================= */
+const emergencyContacts = [
+  {
+    name: "Polisi",
+    phone: "110",
+    icon: <Siren size={20} />,
+    color: "bg-red-500",
+  },
+  {
+    name: "Ambulans",
+    phone: "112",
+    icon: <Ambulance size={20} />,
+    color: "bg-blue-500",
+  },
+  {
+    name: "Pemadam",
+    phone: "112",
+    icon: <Flame size={20} />,
+    color: "bg-orange-500",
+  },
+];
+
 export default function PortalRT() {
-  const [bulan, setBulan] = useState('2026-01')
-  const [openDetail, setOpenDetail] = useState<number | null>(null)
-  const [activeAcara, setActiveAcara] = useState<number | null>(null)
-  const [nama, setNama] = useState('')
-  const [pesan, setPesan] = useState('')
-  const [listAspirasi, setListAspirasi] = useState([
-    { user: 'Bpk. Budi', pesan: 'Terima kasih atas transparansi laporannya, sangat membantu!', waktu: '2 jam yang lalu' },
-    { user: 'Ibu Sari', pesan: 'Mohon info untuk jadwal fogging apakah bisa dipercepat?', waktu: '5 jam yang lalu' },
-  ])
+  const [bulan, setBulan] = useState("2026-01");
+  const [dataSaldo, setDataSaldo] = useState({ saldo: 0, total_keluar: 0 });
+  const [listTimeline, setListTimeline] = useState<any[]>([]);
+  const [listPengeluaran, setListPengeluaran] = useState<any[]>([]);
+  const [listAgenda, setListAgenda] = useState<any[]>([]);
+  const [postText, setPostText] = useState("");
+  const [posterName, setPosterName] = useState("");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [greeting, setGreeting] = useState("Halo");
 
-  const current = bulananData[bulan]
+  useEffect(() => {
+    const docRef = doc(db, "saldo", bulan);
+    const unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setDataSaldo({
+          saldo: data.saldo || 0,
+          total_keluar: data.total_keluar || 0,
+        });
+      } else {
+        setDataSaldo({ saldo: 0, total_keluar: 0 });
+      }
+    });
+    return () => unsub();
+  }, [bulan]);
 
-  const handleKirimAspirasi = () => {
-    if(!nama || !pesan) return alert('Mohon lengkapi nama dan pesan aspirasi Anda.');
-    setListAspirasi([{ user: nama, pesan, waktu: 'Baru saja' }, ...listAspirasi])
-    setNama(''); setPesan('');
-  }
+  useEffect(() => {
+    const q = query(
+      collection(db, "pengeluaran"),
+      where("date_month", "==", bulan),
+      orderBy("date", "desc")
+    );
+    return onSnapshot(q, (snapshot) =>
+      setListPengeluaran(
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      )
+    );
+  }, [bulan]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "agenda"),
+      where("date_month", "==", bulan),
+      orderBy("date", "asc")
+    );
+    return onSnapshot(q, (snapshot) =>
+      setListAgenda(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+    );
+  }, [bulan]);
+
+  useEffect(() => {
+    const q = query(collection(db, "timeline"), orderBy("createdAt", "desc"));
+    return onSnapshot(q, (snapshot) =>
+      setListTimeline(
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      )
+    );
+  }, []);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting("Selamat Pagi");
+    else if (hour < 18) setGreeting("Selamat Siang");
+    else setGreeting("Selamat Malam");
+  }, []);
+
+  const handlePost = async () => {
+    if (!postText.trim() && !selectedImage) return;
+    try {
+      await addDoc(collection(db, "timeline"), {
+        user: posterName.trim() || "Warga Anonim",
+        content: postText,
+        image: selectedImage,
+        createdAt: serverTimestamp(),
+      });
+      setPostText("");
+      setPosterName("");
+      setSelectedImage(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 800;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const base64 = canvas.toDataURL("image/jpeg", 0.7);
+          setSelectedImage(base64);
+        };
+      };
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-[#FDFEFF] text-slate-900 pb-28 md:pb-12 font-sans selection:bg-indigo-100">
-      
-      {/* --- HEADER --- */}
-      <header className="relative bg-[#0F172A] pt-12 pb-28 px-6 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/20 blur-[120px] rounded-full -mr-48 -mt-48"></div>
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-fuchsia-600/10 blur-[100px] rounded-full -ml-24 -mb-24"></div>
-        
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="text-center md:text-left">
-              <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1 rounded-full mb-4">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Portal Warga Digital</span>
+    <main className="min-h-screen bg-[#0F1115] text-white pb-12 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+      {/* FULL SCREEN IMAGE MODAL */}
+      {fullScreenImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300"
+          onClick={() => setFullScreenImage(null)}
+        >
+          <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors">
+            <X size={32} />
+          </button>
+          <img
+            src={fullScreenImage}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+            alt="Full view"
+          />
+        </div>
+      )}
+
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-5%] left-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-indigo-600/20 blur-[100px] md:blur-[150px] rounded-full"></div>
+        <div className="absolute bottom-[10%] right-[-5%] w-[250px] md:w-[500px] h-[250px] md:h-[500px] bg-emerald-600/10 blur-[100px] md:blur-[150px] rounded-full"></div>
+      </div>
+
+      <header className="relative pt-12 md:pt-24 pb-16 md:pb-24 px-4 md:px-6 z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+            <div className="space-y-3 md:space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-[2px] w-8 md:w-12 bg-indigo-500"></div>
+                <span className="text-indigo-400 font-black text-[10px] md:text-xs tracking-[0.3em] uppercase">
+                  {greeting}, Portal RT.06
+                </span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 tracking-tight">
-                RT.06 <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">RESIDENCE</span>
+              <h1 className="text-5xl md:text-9xl font-black tracking-tighter leading-[0.85] mb-2 md:mb-4">
+                INFO <br />
+                <span className="italic text-outline hover:text-white transition-all duration-500">
+                  WARGA
+                </span>
               </h1>
-              <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">Mandiri • Aman • Harmonis</p>
+              <div className="flex flex-wrap items-center gap-4 md:gap-6 text-slate-400 text-xs md:text-sm font-bold">
+                <div className="flex items-center gap-2">
+                  <MapPin size={14} className="text-indigo-500" /> Kelapa Dua
+                  Tangerang
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-white/5 backdrop-blur-xl p-1.5 rounded-2xl border border-white/10 shadow-2xl">
-              <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-300">
-                <Calendar size={18} />
+            <div className="bg-white/5 border border-white/10 p-1.5 md:p-2 rounded-2xl md:rounded-3xl backdrop-blur-3xl flex items-center w-full md:w-auto">
+              <div className="p-3 md:p-4 bg-indigo-600 rounded-xl md:rounded-2xl shadow-lg shadow-indigo-600/30">
+                <Calendar size={20} className="md:w-6 md:h-6" />
               </div>
-              <select 
+              <select
                 value={bulan}
                 onChange={(e) => setBulan(e.target.value)}
-                className="bg-transparent text-white font-semibold py-2 pr-8 outline-none cursor-pointer text-sm"
+                className="bg-transparent text-lg md:text-xl font-black py-2 px-4 md:px-6 outline-none cursor-pointer appearance-none flex-1"
               >
-                <option value="2026-01" className="text-slate-900">Januari 2026</option>
-                <option value="2026-02" className="text-slate-900">Februari 2026</option>
+                <option value="2026-01" className="text-slate-900">
+                  Januari 2026
+                </option>
+                <option value="2026-02" className="text-slate-900">
+                  Februari 2026
+                </option>
               </select>
             </div>
           </div>
         </div>
       </header>
 
-      {/* --- CONTENT --- */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6 -mt-16 relative z-20">
-        
-        {/* STATS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-10">
-          <StatCard title="Total Saldo Kas" value={current.saldo} icon={<Wallet size={22} />} variant="emerald" isPositive={true} />
-          <StatCard title="Pengeluaran Bulan Ini" value={current.totalKeluar} icon={<TrendingDown size={22} />} variant="rose" isPositive={false} />
+      <div className="max-w-7xl mx-auto px-4 md:px-6 -mt-10 md:-mt-12 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 mb-8 md:mb-12">
+          <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[2rem] md:rounded-[3rem] p-8 md:p-12 shadow-2xl shadow-indigo-900/40 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-white/10 rounded-full -mr-16 md:-mr-20 -mt-16 md:-mt-20 blur-3xl"></div>
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6 opacity-80">
+                <Wallet size={18} />{" "}
+                <span className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em]">
+                  Total Kas RT
+                </span>
+              </div>
+              <h2 className="text-4xl md:text-7xl font-black tracking-tighter mb-8 leading-none">
+                Rp{dataSaldo.saldo?.toLocaleString("id-ID")}
+              </h2>
+              <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 inline-flex items-center gap-3">
+                <div className="p-1.5 bg-rose-500 rounded-full">
+                  <TrendingDown size={16} />
+                </div>
+                <div>
+                  <p className="text-[8px] font-bold opacity-60 uppercase">
+                    Pengeluaran Bulan Ini
+                  </p>
+                  <p className="text-lg font-black">
+                    Rp{dataSaldo.total_keluar?.toLocaleString("id-ID")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:hidden">
+            <RincianPengeluaran listPengeluaran={listPengeluaran} />
+          </div>
+
+          <div className="hidden lg:flex lg:col-span-4 flex-col gap-4">
+            <EmergencyPanel />
+          </div>
         </div>
 
-        {/* PENGURUS */}
-        <section className="mb-16">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-100">
-              <Users size={20} />
-            </div>
-            <h2 className="text-xl font-bold text-slate-800">Struktur Pengurus</h2>
-          </div>
-          <div className="flex overflow-x-auto no-scrollbar gap-4 pb-2 md:grid md:grid-cols-4">
-            {pengurus.map((p, idx) => (
-              <div key={idx} className="min-w-[240px] md:min-w-0 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
-                  {p.icon}
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">{p.jabatan}</h4>
-                  <p className="font-bold text-slate-800 text-sm truncate">{p.nama}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          <div className="lg:col-span-8 space-y-12">
-            {/* AGENDA */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Calendar size={20} className="text-indigo-600" /> Agenda Mendatang
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {current.acara.map((ac: any) => (
-                  <div 
-                    key={ac.id}
-                    onClick={() => setActiveAcara(activeAcara === ac.id ? null : ac.id)}
-                    className={`cursor-pointer p-6 rounded-[2.5rem] border-2 transition-all shadow-sm group ${
-                      activeAcara === ac.id ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-50 text-slate-800 hover:border-indigo-100'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                        activeAcara === ac.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        {ac.status}
-                      </span>
-                      <ChevronRight size={16} className={`transition-transform ${activeAcara === ac.id ? 'rotate-90' : ''}`} />
-                    </div>
-                    <h4 className="font-bold text-lg mb-4 leading-tight">{ac.judul}</h4>
-                    <div className={`space-y-2.5 text-xs font-medium ${activeAcara === ac.id ? 'text-indigo-100' : 'text-slate-500'}`}>
-                      <div className="flex items-center gap-2.5">
-                        <Calendar size={14} className="shrink-0 opacity-70" /> {ac.tgl}
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <Clock size={14} className="shrink-0 opacity-70" /> {ac.jam} WIB
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <MapPin size={14} className={`shrink-0 ${activeAcara === ac.id ? 'text-white' : 'text-rose-500'}`} /> 
-                        <span className="leading-tight">{ac.lokasi}</span>
-                      </div>
-                    </div>
-                    {activeAcara === ac.id && (
-                      <div className="mt-4 pt-4 border-t border-white/20 animate-in fade-in slide-in-from-top-2">
-                        <p className="text-xs leading-relaxed italic opacity-90">"{ac.desc}"</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* TRANSAKSI */}
-            <section className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold text-slate-800">Laporan Kas Keluar</h2>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                  <Info size={16} />
-                </div>
-              </div>
-              <div className="divide-y divide-slate-50">
-                {current.pengeluaran.map((item: any) => (
-                  <div key={item.id} className="py-5 first:pt-0 last:pb-0">
-                    <button
-                      onClick={() => setOpenDetail(openDetail === item.id ? null : item.id)}
-                      className="w-full flex items-center justify-between group"
-                    >
-                      <div className="flex items-center gap-4 text-left">
-                        <div className={`w-12 h-12 rounded-2xl ${item.color} flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105`}>
-                          <Zap size={18} fill="currentColor" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-800 text-sm md:text-base leading-none mb-1.5">{item.judul}</h4>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{item.tanggal} • {item.kategori}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-black text-rose-500 text-sm md:text-base">-Rp{item.total.toLocaleString('id-ID')}</span>
-                        <ChevronDown className={`text-slate-300 transition-transform ${openDetail === item.id ? 'rotate-180 text-indigo-600' : ''}`} size={18} />
-                      </div>
-                    </button>
-                    {openDetail === item.id && (
-                      <div className="mt-4 p-5 bg-slate-50 rounded-2xl border border-slate-100 animate-in slide-in-from-top-1">
-                        {item.detail.map((d: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-xs py-2 font-medium border-b border-white last:border-0">
-                            <span className="text-slate-500">{d.item}</span>
-                            <span className="text-slate-800">Rp{d.harga.toLocaleString('id-ID')}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          {/* ASPIRASI */}
-          <div className="lg:col-span-4 space-y-8">
-            <div className="bg-[#0F172A] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-3xl -mr-16 -mt-16"></div>
-              <h3 className="text-xl font-bold mb-2">Suara Warga</h3>
-              <p className="text-slate-400 text-xs mb-6">Saran Anda adalah prioritas kami.</p>
-              
-              <div className="space-y-4 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-12">
+          <div className="lg:col-span-7 space-y-6 md:space-y-8">
+            <div className="bg-[#1A1D24] rounded-2xl md:rounded-[2.5rem] p-5 md:p-8 border border-white/5 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <img
+                  src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
+                  className="w-10 h-10 rounded-xl bg-indigo-500/20"
+                  alt="avatar"
+                />
                 <input
-                  type="text"
-                  value={nama}
-                  onChange={(e) => setNama(e.target.value)}
-                  placeholder="Nama Lengkap / No Rumah"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 outline-none focus:border-indigo-500 transition-all text-sm font-medium"
+                  value={posterName}
+                  onChange={(e) => setPosterName(e.target.value)}
+                  placeholder="Nama Warga..."
+                  className="bg-white/5 border-none rounded-xl px-4 py-2 flex-1 text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
-                <textarea
-                  rows={3}
-                  value={pesan}
-                  onChange={(e) => setPesan(e.target.value)}
-                  placeholder="Ketik aspirasi Anda..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 outline-none focus:border-indigo-500 transition-all text-sm font-medium resize-none"
-                />
-                <button 
-                  onClick={handleKirimAspirasi}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-indigo-950/40 transition-all active:scale-95"
+              </div>
+              <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                className="w-full bg-transparent border-none text-base md:text-lg font-medium min-h-[80px] md:min-h-[100px] focus:ring-0 placeholder:text-slate-600"
+                placeholder="Apa kabar hari ini?"
+              />
+
+              {selectedImage && (
+                <div className="relative inline-block mt-2">
+                  <img
+                    src={selectedImage}
+                    className="w-24 h-24 object-cover rounded-xl border border-indigo-500/50"
+                    alt="preview"
+                  />
+                  <button
+                    onClick={() => setSelectedImage(null)}
+                    className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-bold text-[10px] uppercase tracking-widest"
                 >
-                  Kirim Pesan <Send size={16} />
+                  <ImageIcon size={18} className="text-indigo-500" /> Sisipkan
+                  Foto
+                </button>
+                <input
+                  type="file"
+                  hidden
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+                <button
+                  onClick={handlePost}
+                  className="bg-white text-black px-6 py-3 rounded-xl font-black text-[10px] tracking-[0.2em] hover:bg-indigo-500 hover:text-white transition-all transform active:scale-95 shadow-xl"
+                >
+                  KIRIM
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between px-2">
-                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-widest">Pesan Terbaru</h4>
-                <div className="flex -space-x-2">
-                  {[1, 2, 3].map(i => <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-200" />)}
-                </div>
-              </div>
-              
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
-                {listAspirasi.map((a, i) => (
-                  <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex gap-4 animate-in slide-in-from-bottom-2">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0 shadow-inner uppercase">
-                      {a.user.charAt(0)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex justify-between items-center mb-1.5">
-                        <h5 className="font-bold text-slate-800 text-xs truncate">{a.user}</h5>
-                        <span className="text-[9px] font-medium text-slate-400 shrink-0">{a.waktu}</span>
+            <div className="space-y-4 md:space-y-6">
+              {listTimeline.map((post) => (
+                <div key={post.id} className="relative group">
+                  <div className="flex items-start gap-3 md:gap-4">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-lg font-black shadow-lg shadow-indigo-600/20">
+                        {post.user.charAt(0)}
                       </div>
-                      <div className="bg-slate-50 p-3 rounded-2xl rounded-tl-none border border-slate-100">
-                        <p className="text-slate-600 text-xs leading-relaxed">"{a.pesan}"</p>
+                      <div className="w-[1.5px] h-full bg-white/5"></div>
+                    </div>
+                    <div className="flex-1 pb-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-sm md:text-base font-black">
+                          {post.user}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                            {post.createdAt?.toDate
+                              ? post.createdAt
+                                  .toDate()
+                                  .toLocaleDateString("id-ID")
+                              : "Baru"}
+                          </span>
+                          {post.createdAt?.toDate && (
+                            <span className="text-[8px] font-bold text-indigo-400/80 uppercase">
+                              {post.createdAt
+                                .toDate()
+                                .toLocaleTimeString("id-ID", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-[#1A1D24] rounded-xl md:rounded-2xl overflow-hidden border border-white/5 shadow-lg">
+                        <div className="p-4 md:p-6">
+                          <p className="text-slate-300 text-xs md:text-sm leading-relaxed">
+                            {post.content}
+                          </p>
+                        </div>
+                        {post.image && (
+                          <div
+                            className="px-2 pb-2 relative group/img cursor-pointer"
+                            onClick={() => setFullScreenImage(post.image)}
+                          >
+                            <img
+                              src={post.image}
+                              className="w-full h-auto rounded-lg transition-all"
+                              alt="img"
+                            />
+                            <div className="absolute inset-2 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                              <Maximize2 className="text-white" size={24} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="lg:hidden pb-10">
+              <EmergencyPanel />
+            </div>
+          </div>
+
+          <div className="lg:col-span-5 space-y-6 md:space-y-12">
+            <div className="hidden lg:block">
+              <RincianPengeluaran listPengeluaran={listPengeluaran} />
+            </div>
+
+            <section className="bg-emerald-500 rounded-2xl md:rounded-[3rem] p-6 md:p-10 text-black shadow-2xl">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="bg-black text-emerald-500 p-2.5 rounded-xl">
+                  <Zap size={20} />
+                </div>
+                <h3 className="font-black text-xl tracking-tight uppercase">
+                  Agenda Warga
+                </h3>
+              </div>
+              <div className="space-y-3 md:space-y-4">
+                {listAgenda.map((ag) => (
+                  <div
+                    key={ag.id}
+                    className="bg-white/20 backdrop-blur-md p-4 md:p-6 rounded-xl md:rounded-[2rem] border border-white/30"
+                  >
+                    <h4 className="font-black text-sm md:text-lg mb-2">
+                      {ag.name}
+                    </h4>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 opacity-70 font-black text-[8px] md:text-[9px] uppercase">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> {ag.date}
+                      </span>
+                      {ag.time && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} /> {ag.time}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} /> {ag.location}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="bg-[#1A1D24] rounded-2xl md:rounded-[3rem] p-6 md:p-10 border border-white/5">
+              <h3 className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-6 text-center">
+                Kepengurusan
+              </h3>
+              <div className="space-y-4 md:space-y-6">
+                {pengurus.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center shadow-lg`}
+                      >
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                          {p.jabatan}
+                        </p>
+                        <p className="text-sm md:text-base font-black">
+                          {p.nama}
+                        </p>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           </div>
         </div>
       </div>
-
-      {/* --- MOBILE NAV --- */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-100 px-8 py-4 flex justify-between items-center md:hidden z-[100] shadow-2xl">
-        <button className="text-indigo-600"><Home size={24} /></button>
-        <button className="text-slate-300"><PieChart size={24} /></button>
-        <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white -mt-12 shadow-2xl shadow-indigo-300 border-4 border-white active:scale-90 transition-transform">
-          <Zap size={24} fill="currentColor" />
-        </div>
-        <button className="text-slate-300"><Bell size={24} /></button>
-        <button className="text-slate-300"><Settings size={24} /></button>
-      </nav>
-
     </main>
-  )
+  );
 }
 
-/* ================== REUSABLE STAT CARD ================== */
-function StatCard({ title, value, icon, variant, isPositive }: any) {
-  const styles: any = {
-    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    rose: "bg-rose-50 text-rose-600 border-rose-100"
-  }
-  
+function EmergencyPanel() {
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-xl shadow-slate-200/40 flex items-center justify-between group hover:border-indigo-100 transition-all">
-      <div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2">{title}</p>
-        <p className={`text-2xl md:text-4xl font-black tracking-tighter ${isPositive ? 'text-slate-900' : 'text-rose-600'}`}>
-          Rp{value.toLocaleString('id-ID')}
-        </p>
-      </div>
-      <div className={`w-14 h-14 md:w-16 md:h-16 rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm ${styles[variant]}`}>
-        {icon}
+    <div className="bg-[#1A1D24] border border-white/5 rounded-2xl md:rounded-[2.5rem] p-6">
+      <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></div>{" "}
+        Panggilan Darurat
+      </h3>
+      <div className="space-y-3">
+        {emergencyContacts.map((contact) => (
+          <a
+            key={contact.name}
+            href={`tel:${contact.phone}`}
+            className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`${contact.color} p-2 rounded-lg`}>
+                {contact.icon}
+              </div>
+              <span className="font-bold text-xs md:text-sm">
+                {contact.name}
+              </span>
+            </div>
+            <span className="font-black text-base md:text-lg">
+              {contact.phone}
+            </span>
+          </a>
+        ))}
       </div>
     </div>
-  )
+  );
+}
+
+function RincianPengeluaran({ listPengeluaran }: { listPengeluaran: any[] }) {
+  return (
+    <section className="bg-white rounded-2xl md:rounded-[3rem] p-6 md:p-10 text-slate-900 shadow-2xl">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="font-black text-xl md:text-2xl tracking-tighter">
+            Pengeluaran
+          </h3>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+            Laporan Kas
+          </p>
+        </div>
+        <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500">
+          <ArrowDownCircle size={22} />
+        </div>
+      </div>
+      <div className="space-y-3">
+        {listPengeluaran.length > 0 ? (
+          listPengeluaran.map((item) => (
+            <div
+              key={item.id}
+              className="p-4 bg-slate-50 rounded-xl flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                  <ReceiptText size={16} className="text-slate-400" />
+                </div>
+                <div>
+                  <span className="block font-black text-[10px] md:text-xs">
+                    {item.name}
+                  </span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                    {item.date}
+                  </span>
+                </div>
+              </div>
+              <span className="font-black text-rose-600 text-xs md:text-sm">
+                -Rp{item.amount?.toLocaleString("id-ID")}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-slate-400 text-[10px] font-bold italic">
+              Kosong
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
