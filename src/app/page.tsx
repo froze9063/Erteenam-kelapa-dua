@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { db } from "../lib/firebase";
+import Link from "next/link"; // Tambahkan ini
 import {
   doc,
   onSnapshot,
@@ -27,12 +28,14 @@ import {
   TrendingDown,
   Wallet,
   ArrowDownCircle,
-  Clock,
-  Maximize2,
   Loader2,
-  Megaphone,
   MessageSquare,
   ShieldAlert,
+  ChevronDown,
+  Copyright,
+  CheckCircle2,
+  Clock,
+  ArrowRight, // Tambahkan ini untuk icon view more
 } from "lucide-react";
 
 // --- KONFIGURASI KEAMANAN ---
@@ -218,8 +221,45 @@ export default function PortalRT() {
   const [activeTab, setActiveTab] = useState<"timeline" | "laporan">(
     "timeline"
   );
-  const [bulan, setBulan] = useState("2026-01");
-  const [dataSaldo, setDataSaldo] = useState({ saldo: 0, total_keluar: 0 });
+  const availableMonths = useMemo(() => {
+    const startYear = 2026;
+    const startMonth = 0;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const months = [];
+    const monthNames = [
+      "Januari",
+      "Februari",
+      "Maret",
+      "April",
+      "Mei",
+      "Juni",
+      "Juli",
+      "Agustus",
+      "September",
+      "Oktober",
+      "November",
+      "Desember",
+    ];
+    for (let y = startYear; y <= currentYear; y++) {
+      const mStart = y === startYear ? startMonth : 0;
+      const mEnd = y === currentYear ? currentMonth : 11;
+      for (let m = mStart; m <= mEnd; m++) {
+        const val = `${y}-${(m + 1).toString().padStart(2, "0")}`;
+        months.push({ value: val, label: `${monthNames[m]} ${y}` });
+      }
+    }
+    return months.reverse();
+  }, []);
+
+  const [bulan, setBulan] = useState(availableMonths[0]?.value || "2026-01");
+  const [dataSaldo, setDataSaldo] = useState({
+    saldo: 0,
+    total_keluar: 0,
+    sudah_bayar: 0,
+    belum_bayar: 0,
+  });
   const [listTimeline, setListTimeline] = useState<any[]>([]);
   const [listPengeluaran, setListPengeluaran] = useState<any[]>([]);
   const [listAgenda, setListAgenda] = useState<any[]>([]);
@@ -246,36 +286,42 @@ export default function PortalRT() {
         setDataSaldo({
           saldo: data.saldo || 0,
           total_keluar: data.total_keluar || 0,
+          sudah_bayar: data.sudah_bayar || 0,
+          belum_bayar: data.belum_bayar || 0,
         });
       } else {
-        setDataSaldo({ saldo: 0, total_keluar: 0 });
+        setDataSaldo({
+          saldo: 0,
+          total_keluar: 0,
+          sudah_bayar: 0,
+          belum_bayar: 0,
+        });
       }
       setIsFetching(false);
     });
   }, [bulan]);
 
   useEffect(() => {
-    const q = query(
+    const qP = query(
       collection(db, "pengeluaran"),
       where("date_month", "==", bulan),
       orderBy("date", "desc")
     );
-    return onSnapshot(q, (snapshot) =>
-      setListPengeluaran(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-      )
+    const unsubP = onSnapshot(qP, (snap) =>
+      setListPengeluaran(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
-  }, [bulan]);
-
-  useEffect(() => {
-    const q = query(
+    const qA = query(
       collection(db, "agenda"),
       where("date_month", "==", bulan),
       orderBy("date", "asc")
     );
-    return onSnapshot(q, (snapshot) =>
-      setListAgenda(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })))
+    const unsubA = onSnapshot(qA, (snap) =>
+      setListAgenda(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
+    return () => {
+      unsubP();
+      unsubA();
+    };
   }, [bulan]);
 
   useEffect(() => {
@@ -296,31 +342,16 @@ export default function PortalRT() {
 
   const handlePost = async () => {
     if (!postText.trim() && !selectedImage) return;
-
-    // Cooldown 5 Menit
     const key = activeTab === "timeline" ? "last_post" : "last_report";
     const lastPost = localStorage.getItem(key);
     const now = Date.now();
     const COOLDOWN = 5 * 60 * 1000;
-
     if (lastPost && now - parseInt(lastPost) < COOLDOWN) {
-      const remaining = Math.ceil(
-        (COOLDOWN - (now - parseInt(lastPost))) / 1000 / 60
-      );
-      alert(
-        `Mohon tunggu ${remaining} menit lagi sebelum ${
-          activeTab === "timeline" ? "posting" : "lapor"
-        } kembali.`
-      );
+      alert(`Mohon tunggu 5 menit, untuk menghindari spam.`);
       return;
     }
-
     const cleanContent = filterText(postText);
     const cleanName = filterText(posterName.trim() || "Warga Anonim");
-    const today = new Date();
-    const dateStr = today.toISOString().split("T")[0]; // 2026-01-03
-    const monthStr = dateStr.substring(0, 7); // 2026-01
-
     try {
       if (activeTab === "timeline") {
         await addDoc(collection(db, "timeline"), {
@@ -334,23 +365,18 @@ export default function PortalRT() {
           name: cleanName,
           description: cleanContent,
           image: selectedImage,
-          date: dateStr,
-          date_month: monthStr,
+          date: new Date().toISOString().split("T")[0],
+          date_month: new Date().toISOString().substring(0, 7),
           createdAt: serverTimestamp(),
         });
       }
-
       localStorage.setItem(key, now.toString());
       setPostText("");
       setPosterName("");
       setSelectedImage(null);
-      alert(
-        activeTab === "timeline"
-          ? "Info berhasil diposting!"
-          : "Laporan telah terkirim ke Pak RT!"
-      );
+      alert("Berhasil dikirim!");
     } catch (err) {
-      alert("Terjadi kesalahan.");
+      alert("Gagal mengirim.");
     }
   };
 
@@ -385,7 +411,7 @@ export default function PortalRT() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0F1115] text-white pb-12 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+    <main className="min-h-screen bg-[#0F1115] text-white pb-4 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
       {fullScreenImage && (
         <div
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
@@ -399,7 +425,6 @@ export default function PortalRT() {
         </div>
       )}
 
-      {/* Decorative BG */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-5%] left-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-indigo-600/20 blur-[100px] md:blur-[150px] rounded-full"></div>
       </div>
@@ -424,31 +449,38 @@ export default function PortalRT() {
               <span>Kelapa Dua Tangerang</span>
             </div>
           </div>
-
-          <div className="bg-white/5 border border-white/10 p-2 rounded-3xl flex items-center w-full md:w-auto">
-            <div className="p-4 bg-indigo-600 rounded-2xl">
+          <div className="bg-white/5 border border-white/10 p-2 rounded-3xl flex items-center w-full md:w-auto relative group transition-all hover:bg-white/10">
+            <div className="p-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-600/20">
               <Calendar size={24} />
             </div>
-            <select
-              value={bulan}
-              onChange={(e) => setBulan(e.target.value)}
-              className="bg-transparent text-xl font-black py-2 px-6 outline-none appearance-none flex-1"
-            >
-              <option value="2026-01" className="text-slate-900">
-                Januari 2026
-              </option>
-              <option value="2026-02" className="text-slate-900">
-                Februari 2026
-              </option>
-            </select>
+            <div className="relative flex-1 md:flex-none flex items-center">
+              <select
+                value={bulan}
+                onChange={(e) => setBulan(e.target.value)}
+                className="bg-transparent text-xl font-black py-2 pl-6 pr-12 outline-none appearance-none cursor-pointer w-full"
+              >
+                {availableMonths.map((m) => (
+                  <option
+                    key={m.value}
+                    value={m.value}
+                    className="text-slate-900 font-sans font-bold"
+                  >
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={20}
+                className="absolute right-4 text-indigo-400 pointer-events-none group-hover:translate-y-0.5 transition-transform"
+              />
+            </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 -mt-12 relative z-10 flex flex-col">
-        {/* ROW 1: SALDO */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-          <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden">
+          <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[300px]">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6 opacity-80">
                 <Wallet size={18} />
@@ -463,17 +495,44 @@ export default function PortalRT() {
                   Rp{dataSaldo.saldo?.toLocaleString("id-ID")}
                 </h2>
               )}
-              <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 inline-flex items-center gap-3">
-                <div className="p-1.5 bg-rose-500 rounded-full">
-                  <TrendingDown size={16} />
+              <div className="flex flex-wrap gap-4">
+                <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 inline-flex items-center gap-3">
+                  <div className="p-1.5 bg-rose-500 rounded-full">
+                    <TrendingDown size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-bold opacity-60 uppercase">
+                      Pengeluaran
+                    </p>
+                    <p className="text-lg font-black">
+                      Rp{dataSaldo.total_keluar?.toLocaleString("id-ID")}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[8px] font-bold opacity-60 uppercase">
-                    Pengeluaran Bulan Ini
-                  </p>
-                  <p className="text-lg font-black">
-                    Rp{dataSaldo.total_keluar?.toLocaleString("id-ID")}
-                  </p>
+                <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/5 inline-flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-400" />
+                    <div>
+                      <p className="text-[8px] font-bold opacity-60 uppercase">
+                        Sudah Bayar
+                      </p>
+                      <p className="text-lg font-black">
+                        {dataSaldo.sudah_bayar}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-px h-8 bg-white/10"></div>
+                  <div className="flex items-center gap-2">
+                    <Clock size={16} className="text-orange-400" />
+                    <div>
+                      <p className="text-[8px] font-bold opacity-60 uppercase">
+                        Belum Bayar
+                      </p>
+                      <p className="text-lg font-black">
+                        {dataSaldo.belum_bayar}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -483,7 +542,6 @@ export default function PortalRT() {
           </div>
         </div>
 
-        {/* MOBILE ONLY: PENGELUARAN */}
         <div className="lg:hidden mb-8 order-1">
           <RincianPengeluaran
             listPengeluaran={listPengeluaran}
@@ -491,7 +549,6 @@ export default function PortalRT() {
           />
         </div>
 
-        {/* SECTION: PENGURUS RT */}
         <section className="mb-12 order-2">
           <div className="flex items-center gap-4 mb-8">
             <div className="h-px flex-1 bg-white/10"></div>
@@ -522,24 +579,21 @@ export default function PortalRT() {
           </div>
         </section>
 
-        {/* ROW 2: INPUT & TIMELINE */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 order-3">
           <div className="lg:col-span-7 space-y-8">
-            {/* INPUT FORM WITH TABS */}
             <div
-              className={`rounded-[2.5rem] p-6 md:p-8 border shadow-2xl transition-colors duration-500 ${
+              className={`rounded-[2.5rem] p-6 md:p-8 border shadow-2xl transition-all duration-500 ${
                 activeTab === "laporan"
-                  ? "bg-[#2A1A1A] border-rose-900/50"
+                  ? "bg-[#2A1A1A] border-rose-900/30"
                   : "bg-[#1A1D24] border-white/5"
               }`}
             >
-              {/* Tab Selector */}
               <div className="flex gap-2 mb-8 bg-black/20 p-1 rounded-2xl w-fit">
                 <button
                   onClick={() => setActiveTab("timeline")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${
                     activeTab === "timeline"
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-indigo-600 text-white shadow-lg"
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
@@ -549,14 +603,13 @@ export default function PortalRT() {
                   onClick={() => setActiveTab("laporan")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${
                     activeTab === "laporan"
-                      ? "bg-rose-600 text-white shadow-lg shadow-rose-900/50"
+                      ? "bg-rose-600 text-white shadow-lg"
                       : "text-slate-500 hover:text-white"
                   }`}
                 >
                   <ShieldAlert size={14} /> LAPOR PAK!
                 </button>
               </div>
-
               <div className="flex items-center gap-3 mb-4">
                 <img
                   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${
@@ -572,7 +625,6 @@ export default function PortalRT() {
                   className="bg-white/5 border-none rounded-xl px-4 py-2 flex-1 text-xs font-bold outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
-
               <textarea
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
@@ -580,26 +632,24 @@ export default function PortalRT() {
                 placeholder={
                   activeTab === "timeline"
                     ? "Ada info apa hari ini warga?"
-                    : "Tuliskan laporan Anda untuk Pak RT..."
+                    : "Tuliskan laporan Anda..."
                 }
               />
-
               {selectedImage && (
-                <div className="relative w-24 h-24 mb-4 group">
+                <div className="relative w-24 h-24 mb-4 group animate-in zoom-in-95">
                   <img
                     src={selectedImage}
-                    className="w-full h-full object-cover rounded-xl border border-white/10"
+                    className="w-full h-full object-cover rounded-xl border border-white/10 shadow-xl"
                     alt="preview"
                   />
                   <button
                     onClick={() => setSelectedImage(null)}
-                    className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-2 -right-2 bg-rose-500 rounded-full p-1 shadow-lg"
                   >
                     <X size={12} />
                   </button>
                 </div>
               )}
-
               <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -613,7 +663,7 @@ export default function PortalRT() {
                         : "text-indigo-500"
                     }
                   />{" "}
-                  Lampirkan Foto
+                  Foto
                 </button>
                 <input
                   type="file"
@@ -630,12 +680,11 @@ export default function PortalRT() {
                       : "bg-white text-black hover:bg-indigo-600 hover:text-white"
                   }`}
                 >
-                  {activeTab === "timeline" ? "KIRIM INFO" : "LAPOR PAK!"}
+                  KIRIM
                 </button>
               </div>
             </div>
 
-            {/* Timeline List */}
             <div className="space-y-6">
               <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-slate-500 mb-4">
                 Informasi Terbaru
@@ -644,12 +693,13 @@ export default function PortalRT() {
                 ? [1, 2].map((i) => (
                     <Skeleton key={i} className="h-40 w-full" />
                   ))
-                : listTimeline.map((post) => (
+                : // MODIFIKASI: Gunakan .slice(0, 3) untuk membatasi tampilan di home
+                  listTimeline.slice(0, 3).map((post) => (
                     <div
                       key={post.id}
-                      className="flex flex-col md:flex-row items-start gap-4"
+                      className="flex flex-col md:flex-row items-start gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500"
                     >
-                      <div className="hidden md:flex w-10 h-10 rounded-xl bg-indigo-600 items-center justify-center font-black">
+                      <div className="hidden md:flex w-10 h-10 rounded-xl bg-indigo-600 items-center justify-center font-black shadow-lg shadow-indigo-600/20">
                         {post.user.charAt(0)}
                       </div>
                       <div className="flex-1 w-full bg-[#1A1D24] rounded-2xl border border-white/5 p-6 shadow-lg">
@@ -669,7 +719,7 @@ export default function PortalRT() {
                         {post.image && (
                           <img
                             src={post.image}
-                            className="mt-4 rounded-xl w-full h-auto cursor-pointer border border-white/5"
+                            className="mt-4 rounded-xl w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
                             onClick={() => setFullScreenImage(post.image)}
                             alt="post"
                           />
@@ -677,10 +727,24 @@ export default function PortalRT() {
                       </div>
                     </div>
                   ))}
+
+              {/* MODIFIKASI: Tombol View More ke halaman lain */}
+              {!isFetching && listTimeline.length > 3 && (
+                <Link href="/timeline" className="block w-full group">
+                  <div className="flex items-center justify-center gap-3 w-full py-6 rounded-3xl border border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/50 transition-all duration-300 cursor-pointer">
+                    <span className="text-[10px] font-black tracking-[0.3em] text-slate-400 group-hover:text-white uppercase">
+                      Lihat {listTimeline.length - 3} Informasi Lainnya
+                    </span>
+                    <ArrowRight
+                      size={14}
+                      className="text-indigo-500 group-hover:translate-x-1 transition-transform"
+                    />
+                  </div>
+                </Link>
+              )}
             </div>
           </div>
 
-          {/* SIDEBAR */}
           <div className="lg:col-span-5 space-y-12">
             <div className="hidden lg:block">
               <RincianPengeluaran
@@ -688,7 +752,6 @@ export default function PortalRT() {
                 isLoading={isFetching}
               />
             </div>
-
             <section className="bg-emerald-500 rounded-[3rem] p-8 md:p-10 text-black shadow-2xl">
               <div className="flex items-center gap-4 mb-6">
                 <Zap size={24} />
@@ -697,38 +760,93 @@ export default function PortalRT() {
                 </h3>
               </div>
               <div className="space-y-4">
-                {isFetching ? (
-                  <Skeleton className="h-20 w-full bg-black/10" />
-                ) : (
-                  listAgenda.map((ag) => (
-                    <div
-                      key={ag.id}
-                      className="bg-white/20 p-6 rounded-[2rem] border border-white/30 transition-transform hover:scale-[1.02]"
-                    >
-                      <h4 className="font-black text-lg mb-2">{ag.name}</h4>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 opacity-70 font-black text-[9px] uppercase">
-                          <Calendar size={12} /> {ag.date}{" "}
-                          {ag.time && `• ${ag.time}`}
+                {listAgenda.length > 0 ? (
+                  listAgenda.map((ag) => {
+                    const today = new Date().toISOString().split("T")[0];
+                    const isToday = ag.date === today;
+                    const isPast = ag.date < today;
+                    let label = "Mendatang";
+                    let labelStyle = "bg-black/10 text-black";
+                    if (isToday) {
+                      label = "Hari Ini";
+                      labelStyle =
+                        "bg-white text-emerald-600 animate-pulse ring-2 ring-white/30";
+                    } else if (isPast) {
+                      label = "Selesai";
+                      labelStyle = "bg-black/20 text-black/50";
+                    }
+                    return (
+                      <div
+                        key={ag.id}
+                        className={`p-6 rounded-[2rem] border bg-white/20 border-white/30 transition-all ${
+                          isPast ? "opacity-50 grayscale" : "hover:scale-[1.02]"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-4 gap-2">
+                          <h4 className="font-black text-lg leading-tight">
+                            {ag.name}
+                          </h4>
+                          <span
+                            className={`text-[8px] font-black uppercase px-3 py-1 rounded-full whitespace-nowrap shadow-sm ${labelStyle}`}
+                          >
+                            {label}
+                          </span>
                         </div>
-                        {ag.location && (
-                          <div className="flex items-center gap-2 opacity-70 font-black text-[9px] uppercase">
-                            <MapPin size={12} /> {ag.location}
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                          <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
+                            <Calendar size={14} strokeWidth={3} />
+                            {ag.date}
                           </div>
-                        )}
+                          {ag.time && (
+                            <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
+                              <Clock size={14} strokeWidth={3} />
+                              {ag.time} WIB
+                            </div>
+                          )}
+                          {ag.location && (
+                            <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
+                              <MapPin size={14} strokeWidth={3} />
+                              {ag.location}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-10 opacity-40 font-black text-[10px] italic border-2 border-dashed border-black/10 rounded-[2rem]">
+                    TIDAK ADA AGENDA
+                  </div>
                 )}
               </div>
             </section>
-
             <div className="lg:hidden">
               <EmergencyPanel />
             </div>
           </div>
         </div>
       </div>
+
+      <footer className="mt-12 border-t border-white/5 py-8 px-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 opacity-40">
+            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center font-black text-[10px]">
+              06
+            </div>
+            <div className="text-left">
+              <p className="font-black text-[9px] tracking-[0.2em] uppercase">
+                Rukun Tetangga 06
+              </p>
+              <p className="text-[8px] font-bold">Kelapa Dua, Tangerang</p>
+            </div>
+          </div>
+          <div className="flex flex-col md:items-end gap-1 opacity-20 text-center md:text-right">
+            <p className="text-[8px] font-black tracking-widest flex items-center gap-1">
+              <Copyright size={10} /> 2026 ALL RIGHTS RESERVED
+            </p>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -746,10 +864,12 @@ function EmergencyPanel() {
           <a
             key={contact.name}
             href={`tel:${contact.phone}`}
-            className="flex items-center justify-between p-4 bg-white/5 hover:bg-indigo-500/10 border border-white/5 rounded-2xl transition-all"
+            className="flex items-center justify-between p-4 bg-white/5 hover:bg-indigo-500/10 border border-white/5 rounded-2xl transition-all group"
           >
             <div className="flex items-center gap-3">
-              <div className={`${contact.color} p-2.5 rounded-xl text-white`}>
+              <div
+                className={`${contact.color} p-2.5 rounded-xl text-white group-hover:scale-110 transition-transform`}
+              >
                 {contact.icon}
               </div>
               <span className="font-bold text-sm">{contact.name}</span>
@@ -793,7 +913,7 @@ function RincianPengeluaran({
           listPengeluaran.map((item) => (
             <div
               key={item.id}
-              className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between"
+              className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between hover:bg-slate-100 transition-colors"
             >
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
@@ -807,13 +927,13 @@ function RincianPengeluaran({
                 </div>
               </div>
               <span className="font-black text-rose-600 text-sm">
-                -Rp{item.amount?.toLocaleString("id-ID")}
+                Rp{item.amount?.toLocaleString("id-ID")}
               </span>
             </div>
           ))
         ) : (
-          <div className="text-center py-10 opacity-40 font-black text-[10px] italic">
-            BELUM ADA DATA
+          <div className="text-center py-6 opacity-40 font-black text-[10px]">
+            TIDAK ADA DATA
           </div>
         )}
       </div>
