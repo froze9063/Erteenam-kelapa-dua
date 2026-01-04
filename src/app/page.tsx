@@ -12,6 +12,8 @@ import {
   where,
   addDoc,
   serverTimestamp,
+  writeBatch,
+  getDocs,
 } from "firebase/firestore";
 
 import {
@@ -35,7 +37,9 @@ import {
   Copyright,
   CheckCircle2,
   Clock,
-  ArrowRight, // Tambahkan ini untuk icon view more
+  ArrowRight,
+  Phone,
+  ArrowUpRight, // Tambahkan ini untuk icon view more
 } from "lucide-react";
 
 // --- KONFIGURASI KEAMANAN ---
@@ -351,7 +355,7 @@ export default function PortalRT() {
       return;
     }
     const cleanContent = filterText(postText);
-    const cleanName = filterText(posterName.trim() || "Warga Anonim");
+    const cleanName = filterText(posterName.trim() || "Warga");
     try {
       if (activeTab === "timeline") {
         await addDoc(collection(db, "timeline"), {
@@ -402,6 +406,14 @@ export default function PortalRT() {
     }
   };
 
+  const [showPopup, setShowPopup] = useState(false);
+
+  useEffect(() => {
+    // Munculkan popup 1 detik setelah halaman dimuat
+    const timer = setTimeout(() => setShowPopup(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   if (isLoadingPage) {
     return (
       <div className="fixed inset-0 bg-[#0F1115] flex flex-col items-center justify-center z-[200]">
@@ -412,6 +424,18 @@ export default function PortalRT() {
 
   return (
     <main className="min-h-screen bg-[#0F1115] text-white pb-4 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
+      <button
+        onClick={() => setShowPopup(true)}
+        className={`fixed bottom-10 right-6 z-[60] flex items-center justify-center bg-[#FFD700] text-black w-12 h-12 rounded-2xl shadow-2xl hover:scale-110 active:scale-90 transition-all border border-black/10 group`}
+        title="Informasi Kas"
+      >
+        <div className="relative">
+          <Zap size={20} fill="currentColor" />
+
+          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-[#FFD700]"></span>
+        </div>
+      </button>
+
       {fullScreenImage && (
         <div
           className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
@@ -424,7 +448,6 @@ export default function PortalRT() {
           />
         </div>
       )}
-
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-5%] left-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-indigo-600/20 blur-[100px] md:blur-[150px] rounded-full"></div>
       </div>
@@ -481,6 +504,22 @@ export default function PortalRT() {
       <div className="max-w-7xl mx-auto px-4 md:px-6 -mt-12 relative z-10 flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
           <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[300px]">
+            {/* Link Detail Kas - Pojok Kanan Atas */}
+            <Link
+              href="/kas"
+              className="absolute top-8 right-8 z-20 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 p-4 rounded-2xl transition-all group active:scale-90"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-widest hidden md:block">
+                  Detail Kas
+                </span>
+                <ArrowUpRight
+                  size={20}
+                  className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                />
+              </div>
+            </Link>
+
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6 opacity-80">
                 <Wallet size={18} />
@@ -847,6 +886,86 @@ export default function PortalRT() {
           </div>
         </div>
       </footer>
+      {/* POPUP PENGUMUMAN - INFO REKENING, KONFIRMASI & VISIT */}
+      {showPopup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-[#FFD700] w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-8 text-black">
+              {/* Header Popup */}
+              <div className="flex justify-between items-start mb-4">
+                <div className="bg-black text-[#FFD700] p-3 rounded-2xl shadow-lg">
+                  <Zap size={24} fill="currentColor" />
+                </div>
+                <button
+                  onClick={() => setShowPopup(false)}
+                  className="p-2 hover:bg-black/10 rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Konten Utama */}
+              <h3 className="text-xl font-black mb-3 leading-tight italic">
+                Iuran Kas RT.06
+              </h3>
+              <p className="text-[13px] font-medium leading-relaxed opacity-90 mb-5">
+                Salam hangat Bapak/Ibu warga RT.06, mohon bantuannya untuk
+                pembayaran iuran kas pada tanggal{" "}
+                <span className="font-bold underline">
+                  1-10 setiap bulannya
+                </span>
+                .
+              </p>
+
+              {/* INFO REKENING BOX */}
+              <div className="bg-black/5 border border-black/10 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1 text-black">
+                  Rekening Pembayaran:
+                </p>
+                <p className="text-base font-black text-black">
+                  BCA — 7655027246
+                </p>
+                <p className="text-[11px] font-bold text-black/80">
+                  a/n LAELNALDI SAPUTRA
+                </p>
+              </div>
+
+              {/* INFO VISIT & KONFIRMASI */}
+              <div className="space-y-3 mb-6">
+                <p className="text-[11px] font-medium leading-relaxed opacity-80">
+                  * Apabila belum sempat membayar, petugas bendahara kami akan{" "}
+                  <span className="font-bold italic">
+                    datang bersilaturahmi ke rumah
+                  </span>{" "}
+                  untuk membantu proses pembayaran.
+                </p>
+                <p className="text-[11px] font-medium leading-relaxed opacity-80">
+                  * Bila sudah transfer, mohon kirim bukti ke nomor{" "}
+                  <span className="font-bold">081280542508</span>.
+                </p>
+              </div>
+
+              {/* ACTION BUTTONS */}
+              <div className="space-y-3">
+                <a
+                  href="https://wa.me/6281280542508?text=Halo%20Bendahara%20RT.06%2C%20saya%20ingin%20mengirimkan%20bukti%20transfer%20iuran%20kas%20bulan%20ini."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] hover:opacity-90 active:scale-95 transition-all shadow-lg"
+                >
+                  Konfirmasi via WhatsApp
+                </a>
+                <button
+                  onClick={() => setShowPopup(false)}
+                  className="w-full bg-black text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] hover:opacity-90 active:scale-95 transition-all shadow-xl"
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -856,9 +975,10 @@ function EmergencyPanel() {
   return (
     <div className="bg-[#1A1D24] border border-white/5 rounded-[2.5rem] p-6 shadow-xl">
       <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>{" "}
+        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
         Panggilan Darurat
       </h3>
+
       <div className="space-y-3">
         {emergencyContacts.map((contact) => (
           <a
@@ -874,9 +994,11 @@ function EmergencyPanel() {
               </div>
               <span className="font-bold text-sm">{contact.name}</span>
             </div>
-            <span className="font-black text-lg tracking-tighter">
-              {contact.phone}
-            </span>
+
+            {/* GANTI PHONE NUMBER → ICON */}
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
+              <Phone className="w-5 h-5" />
+            </div>
           </a>
         ))}
       </div>
@@ -940,3 +1062,50 @@ function RincianPengeluaran({
     </section>
   );
 }
+
+export const generateKasBulanIni = async () => {
+  try {
+    // 1. Inisialisasi Batch dan Referensi
+    const batch = writeBatch(db);
+    const wargaSnap = await getDocs(collection(db, "warga"));
+    const kasRef = collection(db, "kas");
+
+    if (wargaSnap.empty) {
+      alert("Data warga kosong. Harap isi collection warga terlebih dahulu.");
+      return;
+    }
+
+    // 2. Data Statis untuk bulan ini
+    const BULAN_INI = "2026-01";
+    const TANGGAL_HARI_INI = "2026-01-04";
+
+    // 3. Daftar warga yang sudah bayar (untuk filter)
+    const sudahBayarList = ["Drs. H. Fatahullah", "Rusdiman"];
+
+    // 4. Looping data warga untuk dipindahkan ke collection KAS
+    wargaSnap.forEach((document) => {
+      const dataWarga = document.data();
+      const newKasRef = doc(kasRef); // Auto ID dari Firebase
+
+      // Logika Penentuan Status
+      // Status 1 = Sudah Bayar, Status 2 = Belum Bayar
+      const penentuanStatus = sudahBayarList.includes(dataWarga.nama) ? 1 : 2;
+
+      batch.set(newKasRef, {
+        nama: dataWarga.nama,
+        alamat: dataWarga.alamat,
+        date_month: BULAN_INI,
+        date: TANGGAL_HARI_INI,
+        status: penentuanStatus,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    // 5. Eksekusi Batch
+    await batch.commit();
+    alert(`Berhasil membuat data kas untuk ${wargaSnap.size} warga!`);
+  } catch (error) {
+    console.error("Error generating kas: ", error);
+    alert("Gagal membuat data kas.");
+  }
+};
