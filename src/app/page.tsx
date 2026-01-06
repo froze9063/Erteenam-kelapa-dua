@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { db } from "../lib/firebase";
-import Link from "next/link"; // Tambahkan ini
+import Link from "next/link";
 import {
   doc,
   onSnapshot,
@@ -12,8 +12,6 @@ import {
   where,
   addDoc,
   serverTimestamp,
-  writeBatch,
-  getDocs,
 } from "firebase/firestore";
 
 import {
@@ -22,14 +20,12 @@ import {
   Zap,
   ImageIcon,
   X,
-  ReceiptText,
   MapPin,
   Flame,
   Ambulance,
   Siren,
   TrendingDown,
   Wallet,
-  ArrowDownCircle,
   Loader2,
   MessageSquare,
   ShieldAlert,
@@ -38,8 +34,8 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  Phone,
-  ArrowUpRight, // Tambahkan ini untuk icon view more
+  ArrowUpRight,
+  PlusCircle, // Tambahan untuk icon pemasukan
 } from "lucide-react";
 
 // --- KONFIGURASI KEAMANAN ---
@@ -261,11 +257,13 @@ export default function PortalRT() {
   const [dataSaldo, setDataSaldo] = useState({
     saldo: 0,
     total_keluar: 0,
+    total_masuk: 0,
     sudah_bayar: 0,
     belum_bayar: 0,
   });
   const [listTimeline, setListTimeline] = useState<any[]>([]);
   const [listPengeluaran, setListPengeluaran] = useState<any[]>([]);
+  const [listPemasukan, setListPemasukan] = useState<any[]>([]);
   const [listAgenda, setListAgenda] = useState<any[]>([]);
   const [postText, setPostText] = useState("");
   const [posterName, setPosterName] = useState("");
@@ -290,6 +288,7 @@ export default function PortalRT() {
         setDataSaldo({
           saldo: data.saldo || 0,
           total_keluar: data.total_keluar || 0,
+          total_masuk: data.total_masuk || 0,
           sudah_bayar: data.sudah_bayar || 0,
           belum_bayar: data.belum_bayar || 0,
         });
@@ -297,6 +296,7 @@ export default function PortalRT() {
         setDataSaldo({
           saldo: 0,
           total_keluar: 0,
+          total_masuk: 0,
           sudah_bayar: 0,
           belum_bayar: 0,
         });
@@ -314,6 +314,16 @@ export default function PortalRT() {
     const unsubP = onSnapshot(qP, (snap) =>
       setListPengeluaran(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
+
+    const qIn = query(
+      collection(db, "pemasukan"),
+      where("date_month", "==", bulan),
+      orderBy("date", "desc")
+    );
+    const unsubIn = onSnapshot(qIn, (snap) =>
+      setListPemasukan(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+
     const qA = query(
       collection(db, "agenda"),
       where("date_month", "==", bulan),
@@ -322,8 +332,10 @@ export default function PortalRT() {
     const unsubA = onSnapshot(qA, (snap) =>
       setListAgenda(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
+
     return () => {
       unsubP();
+      unsubIn();
       unsubA();
     };
   }, [bulan]);
@@ -407,9 +419,7 @@ export default function PortalRT() {
   };
 
   const [showPopup, setShowPopup] = useState(false);
-
   useEffect(() => {
-    // Munculkan popup 1 detik setelah halaman dimuat
     const timer = setTimeout(() => setShowPopup(true), 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -426,12 +436,10 @@ export default function PortalRT() {
     <main className="min-h-screen bg-[#0F1115] text-white pb-4 font-sans selection:bg-indigo-500/30 overflow-x-hidden">
       <button
         onClick={() => setShowPopup(true)}
-        className={`fixed bottom-10 right-6 z-[60] flex items-center justify-center bg-[#FFD700] text-black w-12 h-12 rounded-2xl shadow-2xl hover:scale-110 active:scale-90 transition-all border border-black/10 group`}
-        title="Informasi Kas"
+        className="fixed bottom-10 right-6 z-[60] flex items-center justify-center bg-[#FFD700] text-black w-12 h-12 rounded-2xl shadow-2xl hover:scale-110 active:scale-90 transition-all border border-black/10 group"
       >
         <div className="relative">
           <Zap size={20} fill="currentColor" />
-
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-[#FFD700]"></span>
         </div>
       </button>
@@ -448,8 +456,16 @@ export default function PortalRT() {
           />
         </div>
       )}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-5%] left-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-indigo-600/20 blur-[100px] md:blur-[150px] rounded-full"></div>
+
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Glow Ungu di kiri atas */}
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+
+        {/* Glow Biru di kanan tengah */}
+        <div className="absolute top-[20%] right-[-5%] w-[400px] h-[400px] bg-blue-600/5 blur-[100px] rounded-full"></div>
+
+        {/* Glow Emerald di bawah */}
+        <div className="absolute bottom-[-10%] left-[20%] w-[500px] h-[500px] bg-emerald-600/5 blur-[120px] rounded-full"></div>
       </div>
 
       <header className="relative pt-12 md:pt-24 pb-16 md:pb-24 px-4 md:px-6 z-10">
@@ -503,73 +519,113 @@ export default function PortalRT() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 -mt-12 relative z-10 flex flex-col">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-          <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-violet-800 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[300px]">
-            {/* Link Detail Kas - Pojok Kanan Atas */}
+          <div className="lg:col-span-8 bg-[#1E2028] border border-white/10 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[350px] group">
+            {/* Aksesori Dekoratif (Glow di dalam card) */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 blur-[80px] rounded-full -mr-20 -mt-20 group-hover:bg-indigo-600/30 transition-all duration-700"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-violet-600/10 blur-[60px] rounded-full -ml-10 -mb-10"></div>
+
+            {/* Tombol Detail Kas - Dibuat lebih elegan */}
             <Link
               href="/kas"
-              className="absolute top-8 right-8 z-20 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 p-4 rounded-2xl transition-all group active:scale-90"
+              className="absolute top-6 right-6 md:top-8 md:right-8 z-20 flex items-center gap-2 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 backdrop-blur-md px-5 py-2.5 rounded-2xl transition-all duration-300"
             >
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest hidden md:block">
-                  Detail Kas
-                </span>
+              <span className="text-[11px] font-bold tracking-tight text-slate-200">
+                detail kas
+              </span>
+              <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center">
                 <ArrowUpRight
-                  size={20}
-                  className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
+                  size={14}
+                  className="text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"
                 />
               </div>
             </Link>
 
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6 opacity-80">
-                <Wallet size={18} />
-                <span className="text-xs font-black uppercase tracking-[0.2em]">
-                  Total Kas RT
+            <div className="relative z-10 flex flex-col h-full">
+              {/* Label Header */}
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
+                  <Wallet size={18} className="text-indigo-400" />
+                </div>
+                <span className="text-xs font-bold tracking-[0.1em] text-indigo-300/80">
+                  total saldo kas rt
                 </span>
               </div>
-              {isFetching ? (
-                <Skeleton className="h-20 w-3/4" />
-              ) : (
-                <h2 className="text-4xl md:text-7xl font-black tracking-tighter mb-8 leading-none">
-                  Rp{dataSaldo.saldo?.toLocaleString("id-ID")}
-                </h2>
-              )}
-              <div className="flex flex-wrap gap-4">
-                <div className="bg-black/20 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 inline-flex items-center gap-3">
-                  <div className="p-1.5 bg-rose-500 rounded-full">
-                    <TrendingDown size={16} />
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-bold opacity-60 uppercase">
-                      Pengeluaran
-                    </p>
-                    <p className="text-lg font-black">
-                      Rp{dataSaldo.total_keluar?.toLocaleString("id-ID")}
+
+              {/* Saldo Utama */}
+              <div className="mb-auto">
+                {isFetching ? (
+                  <Skeleton className="h-16 w-3/4 mb-4" />
+                ) : (
+                  <div className="space-y-1">
+                    <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">
+                      Rp{dataSaldo.saldo?.toLocaleString("id-ID")}
+                    </h2>
+                    <p className="text-[10px] md:text-xs font-medium text-slate-500 ml-1 italic opacity-80">
+                      *terakhir diperbarui pada bulan{" "}
+                      {new Date().toLocaleDateString("id-ID", {
+                        month: "long",
+                        year: "numeric",
+                      })}
                     </p>
                   </div>
+                )}
+              </div>
+
+              {/* Statistik Grid - Lebih Rapi & Proper */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-10">
+                {/* Pemasukan */}
+                <div className="bg-white/[0.03] border border-white/5 p-4 rounded-[1.5rem] backdrop-blur-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                      <PlusCircle size={14} />
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      pemasukan
+                    </span>
+                  </div>
+                  <p className="text-sm md:text-base font-black text-emerald-400">
+                    +Rp{dataSaldo.total_masuk?.toLocaleString("id-ID") || 0}
+                  </p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/5 inline-flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-emerald-400" />
-                    <div>
-                      <p className="text-[8px] font-bold opacity-60 uppercase">
-                        Sudah Bayar
-                      </p>
-                      <p className="text-lg font-black">
+
+                {/* Pengeluaran */}
+                <div className="bg-white/[0.03] border border-white/5 p-4 rounded-[1.5rem] backdrop-blur-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 bg-rose-500/20 text-rose-400 rounded-lg">
+                      <TrendingDown size={14} />
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      pengeluaran
+                    </span>
+                  </div>
+                  <p className="text-sm md:text-base font-black text-rose-400">
+                    -Rp{dataSaldo.total_keluar?.toLocaleString("id-ID") || 0}
+                  </p>
+                </div>
+
+                {/* Status Bayar (Warga) */}
+                <div className="col-span-2 bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-[1.5rem] flex items-center justify-around gap-2">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-indigo-300/60 uppercase tracking-tighter mb-1">
+                      sudah bayar
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                      <span className="text-lg font-black">
                         {dataSaldo.sudah_bayar}
-                      </p>
+                      </span>
                     </div>
                   </div>
                   <div className="w-px h-8 bg-white/10"></div>
-                  <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-orange-400" />
-                    <div>
-                      <p className="text-[8px] font-bold opacity-60 uppercase">
-                        Belum Bayar
-                      </p>
-                      <p className="text-lg font-black">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-bold text-indigo-300/60 uppercase tracking-tighter mb-1">
+                      belum bayar
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-orange-400" />
+                      <span className="text-lg font-black">
                         {dataSaldo.belum_bayar}
-                      </p>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -581,10 +637,21 @@ export default function PortalRT() {
           </div>
         </div>
 
-        <div className="lg:hidden mb-8 order-1">
-          <RincianPengeluaran
-            listPengeluaran={listPengeluaran}
+        {/* SECTION TRANSAKSI (PEMASUKAN & PENGELUARAN) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12 order-1">
+          <CompactTransactionList
+            title="Pemasukan Terkini"
+            data={listPemasukan}
+            type="in"
             isLoading={isFetching}
+            href="/pemasukan"
+          />
+          <CompactTransactionList
+            title="Pengeluaran Terkini"
+            data={listPengeluaran}
+            type="out"
+            isLoading={isFetching}
+            href="/pengeluaran"
           />
         </div>
 
@@ -732,8 +799,7 @@ export default function PortalRT() {
                 ? [1, 2].map((i) => (
                     <Skeleton key={i} className="h-40 w-full" />
                   ))
-                : // MODIFIKASI: Gunakan .slice(0, 3) untuk membatasi tampilan di home
-                  listTimeline.slice(0, 3).map((post) => (
+                : listTimeline.slice(0, 3).map((post) => (
                     <div
                       key={post.id}
                       className="flex flex-col md:flex-row items-start gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -766,8 +832,6 @@ export default function PortalRT() {
                       </div>
                     </div>
                   ))}
-
-              {/* MODIFIKASI: Tombol View More ke halaman lain */}
               {!isFetching && listTimeline.length > 3 && (
                 <Link href="/timeline" className="block w-full group">
                   <div className="flex items-center justify-center gap-3 w-full py-6 rounded-3xl border border-dashed border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/50 transition-all duration-300 cursor-pointer">
@@ -785,12 +849,6 @@ export default function PortalRT() {
           </div>
 
           <div className="lg:col-span-5 space-y-12">
-            <div className="hidden lg:block">
-              <RincianPengeluaran
-                listPengeluaran={listPengeluaran}
-                isLoading={isFetching}
-              />
-            </div>
             <section className="bg-emerald-500 rounded-[3rem] p-8 md:p-10 text-black shadow-2xl">
               <div className="flex items-center gap-4 mb-6">
                 <Zap size={24} />
@@ -886,7 +944,7 @@ export default function PortalRT() {
           </div>
         </div>
       </footer>
-      {/* POPUP PENGUMUMAN - INFO REKENING, KONFIRMASI & VISIT */}
+
       {showPopup && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-[#FFD700] w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
@@ -970,142 +1028,114 @@ export default function PortalRT() {
   );
 }
 
-// --- SUB-COMPONENTS ---
-function EmergencyPanel() {
+/**
+ * Komponen Transaksi Reusable (Sesuai Permintaan: Max 3 data + Lihat Semua)
+ */
+function CompactTransactionList({ title, data, type, isLoading, href }: any) {
+  const displayData = data.slice(0, 3);
+
   return (
     <div className="bg-[#1A1D24] border border-white/5 rounded-[2.5rem] p-6 shadow-xl">
-      <h3 className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
-        Panggilan Darurat
-      </h3>
+      <div className="flex items-center gap-3 mb-6 px-2">
+        {type === "in" ? (
+          <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
+            <PlusCircle size={18} />
+          </div>
+        ) : (
+          <div className="p-2 bg-rose-500/20 text-rose-400 rounded-xl">
+            <TrendingDown size={18} />
+          </div>
+        )}
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">
+          {title}
+        </h3>
+      </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 mb-6">
+        {isLoading ? (
+          [1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)
+        ) : displayData.length > 0 ? (
+          displayData.map((item: any) => (
+            <div
+              key={item.id}
+              className="flex justify-between items-center p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-white/10 transition-all"
+            >
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-slate-200">
+                  {item.name || item.description || "Tanpa Keterangan"}
+                </span>
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">
+                  {item.date}
+                </span>
+              </div>
+              <span
+                className={`font-black text-sm whitespace-nowrap ${
+                  type === "in" ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {type === "in" ? "+" : "-"} Rp
+                {item.amount?.toLocaleString("id-ID")}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-8 opacity-20 text-[10px] font-black border border-dashed border-white/10 rounded-2xl">
+            DATA KOSONG
+          </div>
+        )}
+      </div>
+
+      {data.length > 0 && (
+        <Link
+          href={href}
+          className="group flex items-center justify-between px-6 py-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+        >
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 group-hover:text-white transition-colors">
+            Lihat Semua
+          </span>
+          <ArrowRight
+            size={14}
+            className="text-indigo-500 group-hover:translate-x-1 transition-transform"
+          />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function EmergencyPanel() {
+  return (
+    <div className="bg-[#1A1D24] border border-white/5 p-8 rounded-[3rem] shadow-xl">
+      <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-rose-500 mb-6">
+        Darurat & Laporan
+      </h3>
+      <div className="space-y-4">
         {emergencyContacts.map((contact) => (
           <a
             key={contact.name}
             href={`tel:${contact.phone}`}
-            className="flex items-center justify-between p-4 bg-white/5 hover:bg-indigo-500/10 border border-white/5 rounded-2xl transition-all group"
+            className="flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all group border border-white/5"
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`${contact.color} p-2.5 rounded-xl text-white group-hover:scale-110 transition-transform`}
-              >
+            <div className="flex items-center gap-4">
+              <div className={`${contact.color} p-3 rounded-xl shadow-lg`}>
                 {contact.icon}
               </div>
-              <span className="font-bold text-sm">{contact.name}</span>
+              <div className="text-left">
+                <p className="font-black text-sm uppercase tracking-tight">
+                  {contact.name}
+                </p>
+                <p className="text-[10px] font-bold opacity-40">
+                  {contact.phone}
+                </p>
+              </div>
             </div>
-
-            {/* GANTI PHONE NUMBER → ICON */}
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
-              <Phone className="w-5 h-5" />
-            </div>
+            <ArrowRight
+              size={16}
+              className="opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all text-rose-500"
+            />
           </a>
         ))}
       </div>
     </div>
   );
 }
-
-function RincianPengeluaran({
-  listPengeluaran,
-  isLoading,
-}: {
-  listPengeluaran: any[];
-  isLoading: boolean;
-}) {
-  return (
-    <section className="bg-white rounded-[3rem] p-8 md:p-10 text-slate-900 shadow-2xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h3 className="font-black text-2xl tracking-tighter">Pengeluaran</h3>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-            Laporan Kas
-          </p>
-        </div>
-        <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500">
-          <ArrowDownCircle size={24} />
-        </div>
-      </div>
-      <div className="space-y-3">
-        {isLoading ? (
-          [1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full bg-slate-100" />
-          ))
-        ) : listPengeluaran.length > 0 ? (
-          listPengeluaran.map((item) => (
-            <div
-              key={item.id}
-              className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between hover:bg-slate-100 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                  <ReceiptText size={18} className="text-slate-400" />
-                </div>
-                <div>
-                  <span className="block font-black text-xs">{item.name}</span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase">
-                    {item.date}
-                  </span>
-                </div>
-              </div>
-              <span className="font-black text-rose-600 text-sm">
-                Rp{item.amount?.toLocaleString("id-ID")}
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="text-center py-6 opacity-40 font-black text-[10px]">
-            TIDAK ADA DATA
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-export const generateKasBulanIni = async () => {
-  try {
-    // 1. Inisialisasi Batch dan Referensi
-    const batch = writeBatch(db);
-    const wargaSnap = await getDocs(collection(db, "warga"));
-    const kasRef = collection(db, "kas");
-
-    if (wargaSnap.empty) {
-      alert("Data warga kosong. Harap isi collection warga terlebih dahulu.");
-      return;
-    }
-
-    // 2. Data Statis untuk bulan ini
-    const BULAN_INI = "2026-01";
-    const TANGGAL_HARI_INI = "2026-01-04";
-
-    // 3. Daftar warga yang sudah bayar (untuk filter)
-    const sudahBayarList = ["Drs. H. Fatahullah", "Rusdiman"];
-
-    // 4. Looping data warga untuk dipindahkan ke collection KAS
-    wargaSnap.forEach((document) => {
-      const dataWarga = document.data();
-      const newKasRef = doc(kasRef); // Auto ID dari Firebase
-
-      // Logika Penentuan Status
-      // Status 1 = Sudah Bayar, Status 2 = Belum Bayar
-      const penentuanStatus = sudahBayarList.includes(dataWarga.nama) ? 1 : 2;
-
-      batch.set(newKasRef, {
-        nama: dataWarga.nama,
-        alamat: dataWarga.alamat,
-        date_month: BULAN_INI,
-        date: TANGGAL_HARI_INI,
-        status: penentuanStatus,
-        createdAt: serverTimestamp(),
-      });
-    });
-
-    // 5. Eksekusi Batch
-    await batch.commit();
-    alert(`Berhasil membuat data kas untuk ${wargaSnap.size} warga!`);
-  } catch (error) {
-    console.error("Error generating kas: ", error);
-    alert("Gagal membuat data kas.");
-  }
-};
