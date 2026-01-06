@@ -54,16 +54,12 @@ export default function TimelinePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Monitor Scroll untuk Floating Button
   useEffect(() => {
-    const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 400);
-    };
+    const handleScroll = () => setShowBackToTop(window.scrollY > 400);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch Semua Data Timeline
   useEffect(() => {
     const q = query(collection(db, "timeline"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snapshot) => {
@@ -75,9 +71,7 @@ export default function TimelinePage() {
     return unsub;
   }, []);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const handlePost = async () => {
     if (!postText.trim() && !selectedImage) return;
@@ -135,37 +129,40 @@ export default function TimelinePage() {
 
   return (
     <main className="min-h-screen bg-[#0F1115] text-white pb-24 font-sans selection:bg-indigo-500/30">
-      {/* MODAL GAMBAR */}
+      {/* FULLSCREEN IMAGE OVERLAY */}
       {fullScreenImage && (
         <div
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
           onClick={() => setFullScreenImage(null)}
         >
           <img
             src={fullScreenImage}
-            className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl"
+            className="max-w-full max-h-full object-contain rounded-lg"
             alt="Full view"
           />
+          <button className="absolute top-6 right-6 p-2 bg-white/10 rounded-full text-white">
+            <X size={24} />
+          </button>
         </div>
       )}
 
-      {/* HEADER STICKY */}
-      <header className="sticky top-0 z-50 bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/5 px-6 py-5">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 w-full bg-[#0F1115]/90 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link
             href="/"
-            className="p-2 -ml-2 hover:bg-white/5 rounded-2xl transition-all active:scale-90"
+            className="p-2.5 bg-white/5 active:bg-white/10 rounded-xl border border-white/10 transition-all active:scale-95"
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={18} />
           </Link>
           <div className="flex flex-col items-center">
-            <h1 className="text-[10px] font-black tracking-[0.4em] uppercase text-slate-500">
-              Timeline Warga
+            <h1 className="text-[10px] font-black tracking-[0.3em] uppercase text-slate-500">
+              Timeline RT.06
             </h1>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-xs font-bold tracking-tight">
-                RT.06 LIVE
+              <span className="text-[10px] font-bold tracking-tight opacity-80">
+                WARGA LIVE
               </span>
             </div>
           </div>
@@ -173,45 +170,47 @@ export default function TimelinePage() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 mt-8 space-y-10">
-        {/* INPUT AREA */}
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+        {/* INPUT BOX */}
         <div
-          className={`rounded-[2.5rem] p-6 md:p-8 border shadow-2xl transition-all duration-500 ${
+          className={`rounded-3xl p-5 border transition-all duration-500 shadow-2xl ${
             activeTab === "laporan"
               ? "bg-[#2A1A1A] border-rose-900/30"
               : "bg-[#1A1D24] border-white/5"
           }`}
         >
-          <div className="flex gap-2 mb-8 bg-black/20 p-1.5 rounded-2xl w-fit">
+          {/* TAB SWITCHER */}
+          <div className="flex gap-1.5 mb-6 bg-black/30 p-1 rounded-xl">
             <button
               onClick={() => setActiveTab("timeline")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${
                 activeTab === "timeline"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                  : "text-slate-500 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-lg"
+                  : "text-slate-500"
               }`}
             >
-              <MessageSquare size={14} /> POST INFO
+              <MessageSquare size={14} /> INFO
             </button>
             <button
               onClick={() => setActiveTab("laporan")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${
                 activeTab === "laporan"
-                  ? "bg-rose-600 text-white shadow-lg shadow-rose-600/20"
-                  : "text-slate-500 hover:text-white"
+                  ? "bg-rose-600 text-white shadow-lg"
+                  : "text-slate-500"
               }`}
             >
-              <ShieldAlert size={14} /> LAPOR PAK!
+              <ShieldAlert size={14} /> LAPOR
             </button>
           </div>
 
+          {/* NAME INPUT */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
               <img
                 src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${
                   posterName || "anon"
                 }`}
-                className="w-8 h-8 opacity-80"
+                className="w-full h-full object-cover"
                 alt="avatar"
               />
             </div>
@@ -219,49 +218,52 @@ export default function TimelinePage() {
               value={posterName}
               onChange={(e) => setPosterName(e.target.value)}
               placeholder="Nama Anda..."
-              className="bg-white/5 border-none rounded-2xl px-5 py-3 flex-1 text-sm font-bold outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+              className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 flex-1 text-sm font-bold outline-none focus:border-indigo-500/50"
             />
           </div>
 
+          {/* CONTENT INPUT */}
           <textarea
             value={postText}
             onChange={(e) => setPostText(e.target.value)}
-            className="w-full bg-transparent border-none text-base md:text-lg font-medium min-h-[120px] focus:ring-0 placeholder:text-slate-700 resize-none"
+            className="w-full bg-transparent border-none text-[15px] font-medium min-h-[100px] focus:ring-0 placeholder:text-slate-700 resize-none break-words"
             placeholder={
               activeTab === "timeline"
-                ? "Tulis informasi untuk warga..."
-                : "Apa yang ingin Anda laporkan?"
+                ? "Tulis informasi atau kabar warga..."
+                : "Ada kendala di lingkungan? Laporkan di sini..."
             }
           />
 
+          {/* IMAGE PREVIEW */}
           {selectedImage && (
-            <div className="relative w-24 h-24 mb-4 group animate-in zoom-in-95">
+            <div className="relative w-20 h-20 mb-4 animate-in zoom-in-95">
               <img
                 src={selectedImage}
-                className="w-full h-full object-cover rounded-2xl border border-white/10 shadow-xl"
+                className="w-full h-full object-cover rounded-xl border border-white/10"
                 alt="preview"
               />
               <button
                 onClick={() => setSelectedImage(null)}
-                className="absolute -top-2 -right-2 bg-rose-600 rounded-full p-1.5 shadow-lg hover:scale-110 transition-transform"
+                className="absolute -top-1.5 -right-1.5 bg-rose-600 rounded-full p-1 shadow-lg"
               >
-                <X size={14} />
+                <X size={12} />
               </button>
             </div>
           )}
 
-          <div className="flex justify-between items-center mt-4 pt-6 border-t border-white/5">
+          {/* BOTTOM ACTIONS */}
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-white/5">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              className="flex items-center gap-2 text-slate-500 text-[10px] font-black uppercase hover:text-white transition-colors"
             >
               <ImageIcon
-                size={20}
+                size={18}
                 className={
                   activeTab === "laporan" ? "text-rose-500" : "text-indigo-500"
                 }
               />{" "}
-              Lampiran Foto
+              Foto
             </button>
             <input
               type="file"
@@ -272,87 +274,76 @@ export default function TimelinePage() {
             />
             <button
               onClick={handlePost}
-              className={`px-10 py-3.5 rounded-2xl font-black text-[10px] tracking-[0.2em] transition-all transform active:scale-95 shadow-xl ${
+              className={`px-6 py-2.5 rounded-xl font-black text-[10px] tracking-wider transition-all active:scale-95 shadow-lg ${
                 activeTab === "laporan"
-                  ? "bg-rose-600 hover:bg-rose-500 text-white"
-                  : "bg-white text-black hover:bg-indigo-600 hover:text-white"
+                  ? "bg-rose-600 text-white"
+                  : "bg-white text-black"
               }`}
             >
-              KIRIM SEKARANG
+              KIRIM
             </button>
           </div>
         </div>
 
-        {/* TIMELINE LIST */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-slate-500">
-              Arsip Informasi
-            </h3>
-            <span className="bg-white/5 px-3 py-1 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              {listTimeline.length} Posts
+        {/* FEED LIST */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 px-1">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase whitespace-nowrap">
+              Feed Terkini
             </span>
+            <div className="h-[1px] w-full bg-white/5"></div>
           </div>
 
           {isFetching ? (
-            <div className="flex flex-col items-center py-24 opacity-20">
-              <Loader2 className="animate-spin mb-4 w-10 h-10 text-indigo-500" />
-              <p className="text-[10px] font-black tracking-[0.5em] uppercase">
-                Sinkronisasi Data...
-              </p>
+            <div className="flex flex-col items-center py-20 opacity-20">
+              <Loader2 className="animate-spin text-indigo-500" size={32} />
             </div>
           ) : (
             listTimeline.map((post) => (
               <div
                 key={post.id}
-                className="group bg-[#1A1D24] rounded-[2.5rem] border border-white/5 p-6 md:p-8 shadow-lg hover:border-indigo-500/30 transition-all duration-500 animate-in fade-in slide-in-from-bottom-6"
+                className="bg-[#1A1D24] rounded-3xl border border-white/5 p-5 shadow-lg"
               >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center font-black text-lg shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center font-black text-white shadow-lg">
                       {post.user.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h4 className="font-black text-sm md:text-base flex items-center gap-2">
+                      <h4 className="font-bold text-[14px] text-white flex items-center gap-1.5 uppercase tracking-tight">
                         {post.user}
-                        {post.user === "Ketua RT" && (
+                        {post.user.toLowerCase().includes("rt") && (
                           <CheckCircle2 size={14} className="text-blue-400" />
                         )}
                       </h4>
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
                         Warga RT.06
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-tighter block">
+                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-tighter">
                       {post.createdAt?.toDate
-                        ? post.createdAt.toDate().toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "short",
-                          })
+                        ? post.createdAt
+                            .toDate()
+                            .toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                            })
                         : "Baru"}
-                    </span>
-                    <span className="text-[8px] font-bold text-slate-700 uppercase">
-                      {post.createdAt?.toDate
-                        ? post.createdAt.toDate().toLocaleTimeString("id-ID", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : ""}
-                    </span>
+                    </p>
                   </div>
                 </div>
 
-                <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-6 font-medium">
+                <p className="text-slate-300 text-[14px] leading-relaxed mb-4 break-words">
                   {post.content}
                 </p>
 
                 {post.image && (
-                  <div className="relative overflow-hidden rounded-[1.5rem] border border-white/5">
+                  <div className="relative rounded-2xl overflow-hidden border border-white/5">
                     <img
                       src={post.image}
-                      className="w-full h-auto max-h-[500px] object-cover cursor-pointer hover:scale-105 transition-transform duration-700"
+                      className="w-full h-auto max-h-[400px] object-cover"
                       onClick={() => setFullScreenImage(post.image)}
                       alt="post-content"
                     />
@@ -361,28 +352,19 @@ export default function TimelinePage() {
               </div>
             ))
           )}
-
-          {!isFetching && listTimeline.length === 0 && (
-            <div className="text-center py-32 border-2 border-dashed border-white/5 rounded-[3rem] opacity-20">
-              <MessageSquare className="mx-auto mb-4 opacity-50" size={40} />
-              <p className="text-xs font-black uppercase tracking-[0.2em]">
-                Belum ada riwayat informasi
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* FLOATING BACK TO TOP */}
+      {/* FLOATING ACTION */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-8 right-6 z-[60] p-4 rounded-2xl bg-indigo-600 text-white shadow-2xl shadow-indigo-600/40 transition-all duration-500 transform ${
+        className={`fixed bottom-6 right-6 z-[60] p-3.5 rounded-2xl bg-indigo-600 text-white shadow-2xl transition-all duration-500 ${
           showBackToTop
-            ? "translate-y-0 opacity-100 rotate-0"
-            : "translate-y-20 opacity-0 pointer-events-none rotate-180"
-        } hover:bg-indigo-500 active:scale-90`}
+            ? "translate-y-0 opacity-100"
+            : "translate-y-20 opacity-0 pointer-events-none"
+        } active:scale-90`}
       >
-        <ArrowUp size={24} strokeWidth={3} />
+        <ArrowUp size={22} strokeWidth={3} />
       </button>
     </main>
   );
