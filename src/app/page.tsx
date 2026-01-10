@@ -424,6 +424,9 @@ export default function PortalRT() {
     return () => clearTimeout(timer);
   }, []);
 
+  const selectedMonthLabel =
+    availableMonths.find((m) => m.value === bulan)?.label || bulan;
+
   if (isLoadingPage) {
     return (
       <div className="fixed inset-0 bg-[#0F1115] flex flex-col items-center justify-center z-[200]">
@@ -478,9 +481,9 @@ export default function PortalRT() {
               </span>
             </div>
             <h1 className="text-5xl md:text-9xl font-black tracking-tighter leading-[0.85]">
-              INFO <br />{" "}
+              MODERN <br />{" "}
               <span className="italic text-outline hover:text-white transition-all">
-                WARGA
+                TRANSPARAN
               </span>
             </h1>
             <div className="flex items-center gap-2 text-slate-400 font-bold text-xs md:text-sm">
@@ -530,7 +533,7 @@ export default function PortalRT() {
               className="absolute top-6 right-6 md:top-8 md:right-8 z-20 flex items-center gap-2 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 backdrop-blur-md px-5 py-2.5 rounded-2xl transition-all duration-300"
             >
               <span className="text-[11px] font-bold tracking-tight text-slate-200">
-                detail kas
+                Detail Kas
               </span>
               <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center">
                 <ArrowUpRight
@@ -547,7 +550,7 @@ export default function PortalRT() {
                   <Wallet size={18} className="text-indigo-400" />
                 </div>
                 <span className="text-xs font-bold tracking-[0.1em] text-indigo-300/80">
-                  total saldo kas rt
+                  Saldo {selectedMonthLabel}
                 </span>
               </div>
 
@@ -849,61 +852,139 @@ export default function PortalRT() {
           </div>
 
           <div className="lg:col-span-5 space-y-12">
-            <section className="bg-emerald-500 rounded-[3rem] p-8 md:p-10 text-black shadow-2xl">
-              <div className="flex items-center gap-4 mb-6">
-                <Zap size={24} />
-                <h3 className="font-black text-xl uppercase tracking-tight">
-                  Agenda Warga
-                </h3>
+            <section className="bg-[#1A1D24] border border-white/5 rounded-[3rem] p-8 md:p-10 shadow-xl relative overflow-hidden">
+              {/* Dekoratif Glow Halus */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 blur-[80px] rounded-full"></div>
+
+              <div className="relative z-10 flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-emerald-500 mb-2">
+                    Agenda Kegiatan
+                  </h3>
+                  <p className="text-xl font-black tracking-tight text-white uppercase">
+                    Jadwal Warga
+                  </p>
+                </div>
+                <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                  <Zap
+                    size={20}
+                    className="text-emerald-500 fill-emerald-500/20"
+                  />
+                </div>
               </div>
-              <div className="space-y-4">
+
+              <div className="space-y-4 relative z-10">
                 {listAgenda.length > 0 ? (
                   listAgenda.map((ag) => {
                     const today = new Date().toISOString().split("T")[0];
                     const isToday = ag.date === today;
                     const isPast = ag.date < today;
-                    let label = "Mendatang";
-                    let labelStyle = "bg-black/10 text-black";
+
+                    let statusLabel = "Mendatang";
+                    let accentColor = "text-emerald-400"; // Warna lebih terang
+                    let borderColor = "border-white/10"; // Border lebih tegas
+                    let bgColor = "bg-white/[0.04]"; // Background lebih solid
+                    let textColor = "text-white";
+
                     if (isToday) {
-                      label = "Hari Ini";
-                      labelStyle =
-                        "bg-white text-emerald-600 animate-pulse ring-2 ring-white/30";
+                      statusLabel = "Hari Ini";
+                      accentColor = "text-yellow-400";
+                      borderColor = "border-yellow-400/50";
+                      bgColor = "bg-yellow-400/[0.08]";
+                      textColor = "text-white font-black";
                     } else if (isPast) {
-                      label = "Selesai";
-                      labelStyle = "bg-black/20 text-black/50";
+                      statusLabel = "Selesai";
+                      accentColor = "text-slate-400"; // Abu-abu terang, bukan transparan
+                      borderColor = "border-white/5";
+                      bgColor = "bg-white/[0.02]";
+                      textColor = "text-slate-300"; // Teks tetap terbaca jelas
                     }
+
                     return (
                       <div
                         key={ag.id}
-                        className={`p-6 rounded-[2rem] border bg-white/20 border-white/30 transition-all ${
-                          isPast ? "opacity-50 grayscale" : "hover:scale-[1.02]"
+                        className={`p-6 rounded-[2rem] border transition-all duration-300 ${borderColor} ${bgColor} ${
+                          isPast
+                            ? "grayscale-[0.5]"
+                            : "hover:border-white/20 hover:bg-white/[0.07]"
                         }`}
                       >
-                        <div className="flex justify-between items-start mb-4 gap-2">
-                          <h4 className="font-black text-lg leading-tight">
+                        <div className="flex justify-between items-start mb-4 gap-4">
+                          <h4
+                            className={`font-bold text-base md:text-lg leading-tight ${textColor}`}
+                          >
                             {ag.name}
                           </h4>
                           <span
-                            className={`text-[8px] font-black uppercase px-3 py-1 rounded-full whitespace-nowrap shadow-sm ${labelStyle}`}
+                            className={`text-[8px] font-black uppercase px-3 py-1 rounded-lg border border-current tracking-widest ${accentColor} bg-black/20`}
                           >
-                            {label}
+                            {statusLabel}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                          <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
-                            <Calendar size={14} strokeWidth={3} />
-                            {ag.date}
+
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                          <div
+                            className={`flex items-center gap-2 font-bold text-[10px] uppercase tracking-wide ${
+                              isPast ? "text-slate-500" : "text-slate-300"
+                            }`}
+                          >
+                            <Calendar
+                              size={14}
+                              className={
+                                isToday
+                                  ? "text-yellow-400"
+                                  : isPast
+                                  ? "text-slate-500"
+                                  : "text-emerald-400"
+                              }
+                            />
+                            {new Date(ag.date).toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                            })}
                           </div>
+
                           {ag.time && (
-                            <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
-                              <Clock size={14} strokeWidth={3} />
-                              {ag.time} WIB
+                            <div
+                              className={`flex items-center gap-2 font-bold text-[10px] uppercase tracking-wide ${
+                                isPast ? "text-slate-500" : "text-slate-300"
+                              }`}
+                            >
+                              <Clock
+                                size={14}
+                                className={
+                                  isToday
+                                    ? "text-yellow-400"
+                                    : isPast
+                                    ? "text-slate-500"
+                                    : "text-emerald-400"
+                                }
+                              />
+                              {ag.time}
                             </div>
                           )}
+
                           {ag.location && (
-                            <div className="flex items-center gap-2 opacity-70 font-black text-[10px] uppercase">
-                              <MapPin size={14} strokeWidth={3} />
-                              {ag.location}
+                            <div
+                              className={`flex items-center gap-2 font-bold text-[10px] uppercase tracking-wide w-full mt-1 border-t ${
+                                isPast
+                                  ? "border-white/[0.02]"
+                                  : "border-white/5"
+                              } pt-2 ${
+                                isPast ? "text-slate-500" : "text-slate-400"
+                              }`}
+                            >
+                              <MapPin
+                                size={14}
+                                className={
+                                  isToday
+                                    ? "text-yellow-400"
+                                    : isPast
+                                    ? "text-slate-500"
+                                    : "text-emerald-400"
+                                }
+                              />
+                              <span className="truncate">{ag.location}</span>
                             </div>
                           )}
                         </div>
@@ -911,12 +992,15 @@ export default function PortalRT() {
                     );
                   })
                 ) : (
-                  <div className="text-center py-10 opacity-40 font-black text-[10px] italic border-2 border-dashed border-black/10 rounded-[2rem]">
-                    TIDAK ADA AGENDA
+                  <div className="text-center py-12 bg-white/[0.02] border border-dashed border-white/10 rounded-[2.5rem]">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600">
+                      Tidak ada agenda
+                    </p>
                   </div>
                 )}
               </div>
             </section>
+
             <div className="lg:hidden">
               <EmergencyPanel />
             </div>
@@ -924,23 +1008,48 @@ export default function PortalRT() {
         </div>
       </div>
 
-      <footer className="mt-12 border-t border-white/5 py-8 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 opacity-40">
-            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center font-black text-[10px]">
-              06
-            </div>
-            <div className="text-left">
-              <p className="font-black text-[9px] tracking-[0.2em] uppercase">
-                Rukun Tetangga 06
-              </p>
-              <p className="text-[8px] font-bold">Kelapa Dua, Tangerang</p>
+      {/* --- FOOTER / POWERED BY --- */}
+      {/* --- FOOTER / POWERED BY --- */}
+
+      <footer className="max-w-7xl mx-auto px-6 mt-32 mb-16 relative z-10">
+        <div className="flex flex-col items-center justify-center">
+          {/* Garis Pembatas Halus */}
+          <div className="h-px w-full max-w-sm bg-gradient-to-r from-transparent via-white/10 to-transparent mb-12"></div>
+
+          <div className="flex flex-col items-center gap-6 group">
+            <span className="text-[11px] font-black tracking-[0.6em] text-slate-500 uppercase ml-[0.6em]">
+              Powered By
+            </span>
+
+            <div className="relative">
+              {/* Efek Cahaya di belakang logo */}
+              <div className="absolute inset-0 bg-indigo-500/10 blur-[50px] rounded-full group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+
+              {/* Container Logo Besar */}
+              <div className="relative h-30 md:h-38 w-auto flex items-center justify-center overflow-hidden">
+                <img
+                  src="/images/aldieys.webp"
+                  alt="Powered By Logo"
+                  className="h-full w-auto object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.05)] opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500 ease-out"
+                />
+              </div>
             </div>
           </div>
-          <div className="flex flex-col md:items-end gap-1 opacity-20 text-center md:text-right">
-            <p className="text-[8px] font-black tracking-widest flex items-center gap-1">
-              <Copyright size={10} /> 2026 ALL RIGHTS RESERVED
-            </p>
+
+          {/* Copyright & Lokasi */}
+          <div className="flex flex-col items-center gap-3 mt-12">
+            <div className="flex items-center gap-3 text-[10px] md:text-[11px] font-black text-slate-600 uppercase tracking-[0.4em]">
+              <Copyright size={12} className="text-indigo-500/40" />
+              <span>2026 RT.06 Digital Portal</span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="h-px w-6 bg-white/5"></div>
+              <span className="text-[9px] font-bold text-slate-700 uppercase tracking-[0.2em]">
+                Kelapa Dua, Tangerang
+              </span>
+              <div className="h-px w-6 bg-white/5"></div>
+            </div>
           </div>
         </div>
       </footer>
@@ -1103,39 +1212,70 @@ function CompactTransactionList({ title, data, type, isLoading, href }: any) {
   );
 }
 
-function EmergencyPanel() {
-  return (
-    <div className="bg-[#1A1D24] border border-white/5 p-8 rounded-[3rem] shadow-xl">
-      <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-rose-500 mb-6">
-        Darurat & Laporan
-      </h3>
-      <div className="space-y-4">
-        {emergencyContacts.map((contact) => (
-          <a
-            key={contact.name}
-            href={`tel:${contact.phone}`}
-            className="flex items-center justify-between p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all group border border-white/5"
-          >
-            <div className="flex items-center gap-4">
-              <div className={`${contact.color} p-3 rounded-xl shadow-lg`}>
-                {contact.icon}
-              </div>
-              <div className="text-left">
-                <p className="font-black text-sm uppercase tracking-tight">
-                  {contact.name}
-                </p>
-                <p className="text-[10px] font-bold opacity-40">
-                  {contact.phone}
-                </p>
-              </div>
-            </div>
-            <ArrowRight
-              size={16}
-              className="opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all text-rose-500"
-            />
-          </a>
-        ))}
+const EmergencyPanel = () => (
+  <div className="bg-[#1A1D24] border border-white/5 p-8 rounded-[3rem] shadow-xl relative overflow-hidden">
+    {/* Dekoratif Glow Halus */}
+    <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 blur-[60px] rounded-full"></div>
+
+    <div className="relative z-10 flex items-center justify-between mb-8">
+      <div>
+        <h3 className="text-[10px] font-black tracking-[0.4em] uppercase text-rose-500 mb-2">
+          Darurat & Laporan
+        </h3>
+        <p className="text-xl font-black tracking-tight text-white uppercase">
+          Kontak Penting
+        </p>
+      </div>
+      <div className="p-3 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+        <ShieldAlert size={20} className="text-rose-500" />
       </div>
     </div>
-  );
-}
+
+    <div className="space-y-4 relative z-10">
+      {emergencyContacts.map((contact) => (
+        <a
+          key={contact.name}
+          href={`tel:${contact.phone}`}
+          className="flex items-center justify-between p-4 bg-white/[0.03] rounded-[2rem] hover:bg-white/[0.07] transition-all group border border-white/5"
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className={`${contact.color} p-3.5 rounded-2xl shadow-lg shadow-black/20 group-hover:scale-110 transition-transform duration-300`}
+            >
+              {contact.icon}
+            </div>
+            <p className="font-black text-sm md:text-base uppercase tracking-tight text-white">
+              {contact.name}
+            </p>
+          </div>
+
+          {/* Action Icon: Phone Only */}
+          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5 group-hover:bg-rose-500 group-hover:border-rose-400 group-hover:text-white transition-all duration-300 shadow-lg">
+            {/* Menggunakan Lucide Phone Icon atau Siren sebagai representasi panggil */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="group-hover:animate-bounce"
+            >
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </div>
+        </a>
+      ))}
+    </div>
+
+    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-center gap-2 opacity-30">
+      <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
+      <span className="text-[9px] font-black uppercase tracking-widest">
+        Sistem Aktif 24 Jam
+      </span>
+    </div>
+  </div>
+);
