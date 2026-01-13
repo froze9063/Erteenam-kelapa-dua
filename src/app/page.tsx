@@ -35,8 +35,12 @@ import {
   Clock,
   ArrowRight,
   ArrowUpRight,
-  PlusCircle, // Tambahan untuk icon pemasukan
+  PlusCircle,
+  FileDown, // Tambahan untuk icon pemasukan
 } from "lucide-react";
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // --- KONFIGURASI KEAMANAN ---
 const BAD_WORDS = [
@@ -216,6 +220,48 @@ const emergencyContacts = [
 const Skeleton = ({ className }: { className: string }) => (
   <div className={`animate-pulse bg-white/10 rounded-xl ${className}`}></div>
 );
+
+const exportToPDF = (
+  title: string,
+  data: any[],
+  type: "in" | "out",
+  monthLabel: string
+) => {
+  const doc = new jsPDF();
+  const dateStr = new Date().toLocaleDateString("id-ID");
+
+  // Judul Laporan
+  doc.setFontSize(16);
+  doc.text(`LAPORAN ${title.toUpperCase()}`, 14, 20);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Periode: ${monthLabel} | Dicetak: ${dateStr}`, 14, 28);
+
+  // Tabel Hanya: Name, Date, Amount
+  const tableColumn = ["Nama", "Tanggal", "Nominal"];
+  const tableRows = data.map((item) => [
+    item.name || item.user || "Anonim",
+    item.date || "-",
+    `Rp${(item.amount || 0).toLocaleString("id-ID")}`,
+  ]);
+
+  autoTable(doc, {
+    head: [tableColumn],
+    body: tableRows,
+    startY: 35,
+    theme: "striped",
+    headStyles: {
+      fillColor: type === "in" ? [16, 185, 129] : [225, 29, 72], // Hijau vs Merah
+      fontStyle: "bold",
+    },
+    columnStyles: {
+      2: { halign: "right" }, // Kolom Nominal rata kanan
+    },
+  });
+
+  doc.save(`${title}_${monthLabel.replace(/\s+/g, "_")}.pdf`);
+};
 
 export default function PortalRT() {
   const [activeTab, setActiveTab] = useState<"timeline" | "laporan">(
@@ -550,7 +596,7 @@ export default function PortalRT() {
                   <Wallet size={18} className="text-indigo-400" />
                 </div>
                 <span className="text-xs font-bold tracking-[0.1em] text-indigo-300/80">
-                  Saldo {selectedMonthLabel}
+                  Total Saldo
                 </span>
               </div>
 
@@ -640,7 +686,6 @@ export default function PortalRT() {
           </div>
         </div>
 
-        {/* SECTION TRANSAKSI (PEMASUKAN & PENGELUARAN) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12 order-1">
           <CompactTransactionList
             title="Pemasukan Terkini"
@@ -648,6 +693,7 @@ export default function PortalRT() {
             type="in"
             isLoading={isFetching}
             href="/pemasukan"
+            monthLabel={selectedMonthLabel}
           />
           <CompactTransactionList
             title="Pengeluaran Terkini"
@@ -655,6 +701,7 @@ export default function PortalRT() {
             type="out"
             isLoading={isFetching}
             href="/pengeluaran"
+            monthLabel={selectedMonthLabel}
           />
         </div>
 
@@ -1140,12 +1187,20 @@ export default function PortalRT() {
 /**
  * Komponen Transaksi Reusable (Sesuai Permintaan: Max 3 data + Lihat Semua)
  */
-function CompactTransactionList({ title, data, type, isLoading, href }: any) {
+function CompactTransactionList({
+  title,
+  data,
+  type,
+  isLoading,
+  href,
+  monthLabel,
+}: any) {
   const displayData = data.slice(0, 3);
 
   return (
     <div className="bg-[#1A1D24] border border-white/5 rounded-[2.5rem] p-6 shadow-xl">
-      <div className="flex items-center gap-3 mb-6 px-2">
+      {/* Header Container dengan Flex Wrap untuk Mobile */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 px-2">
         {type === "in" ? (
           <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
             <PlusCircle size={18} />
@@ -1158,6 +1213,20 @@ function CompactTransactionList({ title, data, type, isLoading, href }: any) {
         <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">
           {title}
         </h3>
+
+        {/* Spacer tersembunyi di mobile agar tombol turun ke bawah */}
+        <div className="hidden sm:block flex-1" />
+
+        {/* Button: Full width di mobile (w-full), auto di desktop (sm:w-auto) */}
+        <button
+          onClick={() => exportToPDF(title, data, type, monthLabel)}
+          className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 sm:py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-all active:scale-95 shadow-lg shadow-indigo-600/20 mt-2 sm:mt-0 order-last sm:order-none"
+        >
+          <FileDown size={14} />
+          <span className="text-[11px] font-black tracking-tight">
+            Download PDF
+          </span>
+        </button>
       </div>
 
       <div className="space-y-3 mb-6">
