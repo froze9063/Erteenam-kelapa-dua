@@ -225,7 +225,7 @@ const exportToPDF = (
   title: string,
   data: any[],
   type: "in" | "out",
-  monthLabel: string
+  monthLabel: string,
 ) => {
   const doc = new jsPDF();
   const dateStr = new Date().toLocaleDateString("id-ID");
@@ -265,7 +265,7 @@ const exportToPDF = (
 
 export default function PortalRT() {
   const [activeTab, setActiveTab] = useState<"timeline" | "laporan">(
-    "timeline"
+    "timeline",
   );
   const availableMonths = useMemo(() => {
     const startYear = 2026;
@@ -355,28 +355,28 @@ export default function PortalRT() {
     const qP = query(
       collection(db, "pengeluaran"),
       where("date_month", "==", bulan),
-      orderBy("date", "desc")
+      orderBy("date", "desc"),
     );
     const unsubP = onSnapshot(qP, (snap) =>
-      setListPengeluaran(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setListPengeluaran(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
 
     const qIn = query(
       collection(db, "pemasukan"),
       where("date_month", "==", bulan),
-      orderBy("date", "desc")
+      orderBy("date", "desc"),
     );
     const unsubIn = onSnapshot(qIn, (snap) =>
-      setListPemasukan(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setListPemasukan(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
 
     const qA = query(
       collection(db, "agenda"),
       where("date_month", "==", bulan),
-      orderBy("date", "asc")
+      orderBy("date", "asc"),
     );
     const unsubA = onSnapshot(qA, (snap) =>
-      setListAgenda(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setListAgenda(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
 
     return () => {
@@ -390,8 +390,8 @@ export default function PortalRT() {
     const q = query(collection(db, "timeline"), orderBy("createdAt", "desc"));
     return onSnapshot(q, (snapshot) =>
       setListTimeline(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-      )
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      ),
     );
   }, []);
 
@@ -610,11 +610,7 @@ export default function PortalRT() {
                       Rp{dataSaldo.saldo?.toLocaleString("id-ID")}
                     </h2>
                     <p className="text-[10px] md:text-xs font-medium text-slate-500 ml-1 italic opacity-80">
-                      *terakhir diperbarui pada bulan{" "}
-                      {new Date().toLocaleDateString("id-ID", {
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      *Saldo pada bulan {selectedMonthLabel}
                     </p>
                   </div>
                 )}
@@ -981,8 +977,8 @@ export default function PortalRT() {
                                 isToday
                                   ? "text-yellow-400"
                                   : isPast
-                                  ? "text-slate-500"
-                                  : "text-emerald-400"
+                                    ? "text-slate-500"
+                                    : "text-emerald-400"
                               }
                             />
                             {new Date(ag.date).toLocaleDateString("id-ID", {
@@ -1003,8 +999,8 @@ export default function PortalRT() {
                                   isToday
                                     ? "text-yellow-400"
                                     : isPast
-                                    ? "text-slate-500"
-                                    : "text-emerald-400"
+                                      ? "text-slate-500"
+                                      : "text-emerald-400"
                                 }
                               />
                               {ag.time}
@@ -1027,8 +1023,8 @@ export default function PortalRT() {
                                   isToday
                                     ? "text-yellow-400"
                                     : isPast
-                                    ? "text-slate-500"
-                                    : "text-emerald-400"
+                                      ? "text-slate-500"
+                                      : "text-emerald-400"
                                 }
                               />
                               <span className="truncate">{ag.location}</span>
