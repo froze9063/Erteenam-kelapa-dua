@@ -17,13 +17,30 @@ import {
   CheckCircle2,
   XCircle,
   CalendarDays,
+  ChevronDown,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function KasFullListPage() {
   const router = useRouter();
+
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonthNum = currentDate.getMonth();
+
+  const monthOptions = Array.from({ length: currentMonthNum + 1 }, (_, i) => {
+    const date = new Date(currentYear, i, 1);
+    const value = `${currentYear}-${String(i + 1).padStart(2, "0")}`;
+    const label = date.toLocaleString("id-ID", {
+      month: "short",
+      year: "numeric",
+    });
+    return { value, label };
+  }).reverse(); // Paling baru di atas
+
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
   const [activeTab, setActiveTab] = useState<"semua" | "sudah" | "belum">(
-    "semua"
+    "semua",
   );
   const [allData, setAllData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,11 +49,11 @@ export default function KasFullListPage() {
   useEffect(() => {
     setLoading(true);
     const kasRef = collection(db, "kas");
-    // Ambil semua data kas untuk bulan Januari 2026
+
     const q = query(
       kasRef,
-      where("date_month", "==", "2026-01"),
-      orderBy("nama", "asc")
+      where("date_month", "==", selectedMonth),
+      orderBy("nama", "asc"),
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -45,9 +62,8 @@ export default function KasFullListPage() {
     });
 
     return unsub;
-  }, []);
+  }, [selectedMonth]);
 
-  // Filter Logika
   const filteredData = allData.filter((warga) => {
     const matchSearch = warga.nama
       .toLowerCase()
@@ -57,13 +73,11 @@ export default function KasFullListPage() {
     return matchSearch;
   });
 
-  // Hitung Quick Stats
   const totalSudah = allData.filter((d) => d.status === 1).length;
   const totalBelum = allData.filter((d) => d.status === 0).length;
 
   return (
     <main className="min-h-screen bg-[#0F1115] text-white font-sans selection:bg-indigo-500/30">
-      {/* Background Decor */}
       <div className="fixed top-[-5%] right-[-5%] w-[250px] h-[250px] bg-indigo-600/10 blur-[80px] rounded-full pointer-events-none z-0"></div>
 
       {/* HEADER */}
@@ -86,17 +100,29 @@ export default function KasFullListPage() {
             </div>
           </div>
 
-          <div className="bg-[#1E2028] border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2 shrink-0">
-            <CalendarDays size={14} className="text-indigo-400" />
-            <span className="text-[11px] font-bold uppercase tracking-tight">
-              Jan 2026
-            </span>
+          <div className="relative group shrink-0">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <CalendarDays size={14} className="text-indigo-400" />
+            </div>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="appearance-none bg-[#1E2028] border border-white/10 pl-9 pr-8 py-2 rounded-xl text-[11px] font-bold uppercase tracking-tight focus:outline-none focus:border-indigo-500/50 transition-all cursor-pointer"
+            >
+              {monthOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+              <ChevronDown size={14} className="text-slate-500" />
+            </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 relative z-10">
-        {/* STATS MINI CARDS */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-[#1E2028] border border-emerald-500/20 p-4 rounded-2xl shadow-lg">
             <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mb-1">
@@ -126,7 +152,6 @@ export default function KasFullListPage() {
           </div>
         </div>
 
-        {/* SEARCH & TABS */}
         <div className="flex flex-col gap-4 mb-8">
           <div className="relative group">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
@@ -154,8 +179,8 @@ export default function KasFullListPage() {
                     ? tab === "sudah"
                       ? "bg-emerald-600 text-white shadow-lg"
                       : tab === "belum"
-                      ? "bg-rose-600 text-white shadow-lg"
-                      : "bg-white text-black shadow-lg"
+                        ? "bg-rose-600 text-white shadow-lg"
+                        : "bg-white text-black shadow-lg"
                     : "text-slate-500"
                 }`}
               >
@@ -165,7 +190,6 @@ export default function KasFullListPage() {
           </div>
         </div>
 
-        {/* LIST DATA */}
         <div className="space-y-3">
           {loading ? (
             <div className="flex flex-col items-center py-20 opacity-30">
@@ -182,11 +206,7 @@ export default function KasFullListPage() {
               >
                 <div className="flex items-center gap-4 min-w-0">
                   <div
-                    className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center font-black text-lg shadow-inner ${
-                      warga.status === 1
-                        ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-500 border border-rose-500/20"
-                    }`}
+                    className={`w-11 h-11 shrink-0 rounded-xl flex items-center justify-center font-black text-lg shadow-inner ${warga.status === 1 ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border border-rose-500/20"}`}
                   >
                     {warga.nama.charAt(0)}
                   </div>
@@ -202,7 +222,6 @@ export default function KasFullListPage() {
                     </div>
                   </div>
                 </div>
-
                 <div className="shrink-0 ml-3">
                   {warga.status === 1 ? (
                     <div className="flex flex-col items-center">
