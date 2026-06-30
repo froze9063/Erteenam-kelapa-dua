@@ -41,6 +41,7 @@ import {
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import TunggakanWarga from "./tunggakan_warga";
 
 // --- KONFIGURASI KEAMANAN ---
 const BAD_WORDS = [
@@ -682,6 +683,11 @@ export default function PortalRT() {
           </div>
         </div>
 
+        {/* Card Tunggakan Warga — full width, di atas Pemasukan/Pengeluaran */}
+        <div className="mb-6 order-1">
+          <TunggakanWarga />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12 order-1">
           <CompactTransactionList
             title="Pemasukan Terkini"
@@ -1137,6 +1143,19 @@ export default function PortalRT() {
                 </p>
                 <p className="text-[11px] font-bold text-black/80">
                   a/n LAELNALDI SAPUTRA
+                </p>
+              </div>
+
+              {/* INFO REKENING BOX */}
+              <div className="bg-black/5 border border-black/10 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1 text-black">
+                  Rekening Pembayaran:
+                </p>
+                <p className="text-base font-black text-black">
+                  MANDIRI — 1760001176575
+                </p>
+                <p className="text-[11px] font-bold text-black/80">
+                  a/n AULIA PANJI WIHAPSORO
                 </p>
               </div>
 
